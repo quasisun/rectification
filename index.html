@@ -133,8 +133,31 @@
         </div>
       </div>
 
+      <!-- Записанное время ± допуск (диапазон ректификации) -->
+      <div class="field-row" style="margin-bottom:4px">
+        <div class="astro-field">
+          <label for="recTime">Записанное (примерное) время рождения</label>
+          <input id="recTime" type="time">
+        </div>
+        <div class="astro-field">
+          <label for="recTol">Диапазон ректификации</label>
+          <select id="recTol">
+            <option value="15">± 15 минут</option>
+            <option value="30" selected>± 30 минут</option>
+            <option value="60">± 1 час</option>
+            <option value="120">± 2 часа</option>
+            <option value="180">± 3 часа</option>
+          </select>
+        </div>
+      </div>
+      <p class="ev-hint">
+        Если время записано в документах — впишите его и выберите допуск (искать будем
+        вокруг него). Если время совсем неизвестно — оставьте поле пустым и задайте окно
+        ниже (блоком или вручную «от … до …»).
+      </p>
+
       <!-- Окно неизвестного времени -->
-      <label style="display:block;margin-bottom:4px">Известный промежуток времени рождения</label>
+      <label style="display:block;margin-bottom:4px">Промежуток поиска</label>
       <div class="win-presets" id="winPresets">
         <button type="button" data-from="06:00" data-to="12:00">Утро 06–12</button>
         <button type="button" data-from="12:00" data-to="18:00">День 12–18</button>
@@ -695,6 +718,19 @@ document.getElementById('winPresets').addEventListener('click',e=>{
   document.getElementById('winTo').value=(b.dataset.to==='24:00')?'23:59':b.dataset.to;
   document.querySelectorAll('#winPresets button').forEach(x=>x.classList.toggle('on',x===b));
 });
+
+// записанное время ± допуск → окно поиска (центр вокруг записанного времени)
+function applyRecRange(){
+  const rt=document.getElementById('recTime').value;
+  if(!rt) return;
+  const c=toMin(rt), tol=+document.getElementById('recTol').value;
+  const from=Math.max(0, c-tol), to=Math.min(1439, c+tol);
+  document.getElementById('winFrom').value=fmtMin(from);
+  document.getElementById('winTo').value=fmtMin(to);
+  document.querySelectorAll('#winPresets button').forEach(x=>x.classList.remove('on'));
+}
+document.getElementById('recTime').addEventListener('input',applyRecRange);
+document.getElementById('recTol').addEventListener('change',applyRecRange);
 function eventRowHtml(){
   const opts=EVENT_TYPES.map(t=>'<option value="'+t.id+'">'+esc(t.label)+'</option>').join('');
   return '<div class="ev-row">'+
@@ -800,6 +836,10 @@ async function runRectification(){
   let toM=toMin(document.getElementById('winTo').value);
   if(toM<=fromMin) toM=fromMin; // одиночная точка
   const step=+document.getElementById('step').value;
+  const recTimeStr=document.getElementById('recTime').value;
+  const recMin=recTimeStr? toMin(recTimeStr) : null;
+  const devStr=t=>{ if(recMin===null) return ''; const dm=t-recMin; const sign=dm>0?'+':(dm<0?'−':'±');
+    return ' · отклонение от записанного '+sign+Math.abs(dm)+' мин'; };
   const [y,mo,d]=dv.split('-').map(Number);
   const events=collectEvents();
 
@@ -869,7 +909,7 @@ async function runRectification(){
       '<div class="best-label">Наиболее вероятное время рождения</div>'+
       '<div class="best-time">'+fmtMinHtml(top.best.t)+'</div>'+
       '<div class="best-sub">восходит '+SIGN_RU[top.lagSign]+' · Лагна-накшатра '+NAKSHATRAS[top.best.lagNak]+
-        ' · совпадение '+Math.round(100*top.best.total/maxTotal)+'%</div></div>';
+        ' · совпадение '+Math.round(100*top.best.total/maxTotal)+'%'+devStr(top.best.t)+'</div></div>';
 
     html+='<p class="note" style="margin-top:12px">Рейтинг построен <b>'+methodsStr+'</b>. '+
       'Совпадение — насколько карта времени соответствует вашим данным. Сравните верхние строки '+
@@ -946,7 +986,8 @@ async function runRectification(){
   const offMid=offAt(midMin);
   const offStr=(offMid>=0?'+':'')+String(Math.floor(Math.abs(offMid))).padStart(2,'0')+':'+String(Math.round((Math.abs(offMid)%1)*60)).padStart(2,'0');
   html+='<p class="calc-details"><b>'+esc(placeLabel)+'</b> · '+lat.toFixed(3)+', '+lon.toFixed(3)+'<br>'+
-    'Дата: '+fmtDate(dv)+' · окно '+fmtMin(fromMin)+'–'+fmtMin(toM)+' · шаг '+step+' мин · кандидатов: '+cands.length+'<br>'+
+    'Дата: '+fmtDate(dv)+(recMin!==null?' · записанное время '+fmtMin(recMin)+' ±'+document.getElementById('recTol').value+' мин':'')+
+    ' · окно '+fmtMin(fromMin)+'–'+fmtMin(toM)+' · шаг '+step+' мин · кандидатов: '+cands.length+'<br>'+
     'Часовой пояс: '+esc(zone)+', смещение <b>UTC'+offStr+'</b> (исторически точное) · аянамша Лахири '+cands[0].chart.ay.toFixed(3)+'°'+
     (SWE_FAILED?'<br><span class="err">Внимание: эфемериды не загрузились, использован приближённый расчёт.</span>':'')+
     '</p>';
