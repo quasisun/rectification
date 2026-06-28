@@ -49,6 +49,25 @@
     border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:600;font-size:.9rem}
   .ev-hint{font-size:.84rem;color:var(--c-ink-soft);margin:0 0 12px}
 
+  /* наади-блок (самоописание) */
+  details.naadi{margin:18px 0 6px;border:1px solid var(--c-line);border-radius:12px;padding:0 14px;background:#fff}
+  details.naadi[open]{padding-bottom:14px}
+  details.naadi>summary{cursor:pointer;padding:14px 0;color:var(--c-red);font-weight:700;font-size:1.05rem}
+  .naadi-sub{margin:14px 0 6px;font-size:.92rem;color:var(--c-ink);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+  .naadi-legend{font-size:.8rem;color:var(--c-ink-soft);margin:0 0 10px}
+  .naadi-st{padding:10px 0;border-top:1px solid var(--c-line)}
+  .naadi-st:first-of-type{border-top:none}
+  .naadi-text{font-size:.92rem;line-height:1.45;margin-bottom:7px}
+  .scale{display:flex;gap:6px;flex-wrap:wrap}
+  .scale button{flex:1 1 0;min-width:38px;padding:7px 0;border-radius:8px;border:1.5px solid var(--c-line);
+    background:#fff;color:var(--c-ink);cursor:pointer;font-size:.9rem;font-weight:600}
+  .scale button:hover{border-color:var(--c-orange)}
+  .scale button.on{background:linear-gradient(135deg,var(--c-red),var(--c-orange));color:#fff;border-color:transparent}
+  .naadi-claim{padding:7px 0;border-top:1px solid var(--c-line);font-size:.9rem;line-height:1.45}
+  .naadi-claim:first-child{border-top:none}
+  .naadi-claim .mark{font-weight:700;margin-right:6px}
+  .mark.yes{color:#1a8a3c}.mark.no{color:var(--c-red)}.mark.mid{color:var(--c-ink-soft)}
+
   /* карточка лучшего времени — фирменный градиент */
   .best-card{margin:8px 0 4px;border-radius:16px;text-align:center;
     background:linear-gradient(135deg,var(--c-red) 0%,var(--c-orange) 100%);
@@ -177,6 +196,19 @@
       <div id="eventsList"></div>
       <button type="button" class="ev-add" id="evAdd">+ Добавить событие</button>
 
+      <!-- Техника наади: самоописание -->
+      <details class="naadi">
+        <summary>Техника наади — отметьте, что про вас (по 5-балльной шкале)</summary>
+        <p class="naadi-legend">
+          Для каждого времени-кандидата получается своя Лагна (восходящий знак) и свои
+          планеты в 1-м доме — а это про облик, тело и характер. Оцените, насколько каждое
+          описание относится к вам: <b>1</b> — совсем нет, <b>3</b> — отчасти,
+          <b>5</b> — точно про меня. Пропущенное не учитывается. Программа найдёт время,
+          чьё «портретное» описание вам ближе всего.
+        </p>
+        <div id="naadiList"></div>
+      </details>
+
       <button class="astro-btn astro-btn--block" id="calcBtn" style="margin-top:18px">
         Подобрать время рождения
       </button>
@@ -189,11 +221,13 @@
     <p class="astro-disclaimer">
       <strong>О методике.</strong>
       Ректификация — уточнение неизвестного или приблизительного времени рождения.
-      Применяются два классических подхода: <b>по Лагне</b> (восходящий знак меняется
-      примерно раз в два часа — выбирают по характеру, внешности и облику жизни)
-      и <b>по событиям</b> (для каждого времени-кандидата строится период
-      <b>Вимшоттари-даши</b>, и проверяется, насколько управители периодов и дома
-      гороскопа соответствуют датам реальных событий). Расчёт ведический, сидерический,
+      Применяются три подхода: <b>по Лагне</b> (восходящий знак меняется примерно раз
+      в два часа — выбирают по характеру, внешности и облику жизни); <b>по событиям</b>
+      (для каждого времени-кандидата строится период <b>Вимшоттари-даши</b>, и проверяется,
+      насколько управители периодов и дома гороскопа соответствуют датам реальных событий);
+      и <b>техника наади</b> (человек оценивает по 5-балльной шкале портретные высказывания,
+      привязанные к восходящему знаку и планетам в 1-м доме, — выбирается время, чьё
+      описание ближе всего). Расчёт ведический, сидерический,
       аянамша Лахири (Читрапакша), швейцарские эфемериды. Результат — вспомогательная
       оценка, а не замена работе астролога: окончательное время подтверждается
       проверкой по нескольким событиям и здравым смыслом.
@@ -437,6 +471,46 @@ function planetsInHouse(chart,house){
   return out;
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   ТЕХНИКА НААДИ — портретные высказывания (привязаны к Лагне и 1-му дому).
+   Каждое высказывание карта кандидата «утверждает» (cond=1) или нет (0).
+   Человек оценивает по 5-балльной шкале; время с самым согласным портретом
+   набирает больше баллов. Только Лагна-зависимые признаки (различают время).
+   ════════════════════════════════════════════════════════════════════ */
+function lagnaIs(sign){ return c=>signIdx(c.pos.Lagna)===sign?1:0; }
+function planetIn1(pl){ return c=>houseFromLagna(c.pos[pl],c.pos.Lagna)===1?1:0; }
+
+const NAADI_LAGNA=[
+  ['Овен','У меня крепкое, подтянутое сложение и решительный, напористый характер; легко загораюсь и иду первым, но бываю вспыльчив(а) и нетерпелив(а).',lagnaIs(0)],
+  ['Телец','Сложение плотное и устойчивое; ценю комфорт, красоту, вкусную еду и стабильность; упрям(а), но добродушен(на) и терпелив(а).',lagnaIs(1)],
+  ['Близнецы','Подвижный ум и речь, любопытство, множество интересов и общения; сложение лёгкое, выгляжу моложе лет; переменчив(а).',lagnaIs(2)],
+  ['Рак','Эмоционален(льна) и привязан(а) к дому и семье; лицо мягкое, округлое; настроение переменчиво, забочусь о близких, легко раним(а).',lagnaIs(3)],
+  ['Лев','Чувство достоинства и гордость, тяга к признанию и лидерству; осанка и внешность заметные; великодушен(на), но самолюбив(а).',lagnaIs(4)],
+  ['Дева','Аналитичный, внимательный к деталям ум; люблю порядок и чистоту, склонен(на) к критике (в т.ч. к себе); скромное сложение, забота о здоровье.',lagnaIs(5)],
+  ['Весы','Стремлюсь к гармонии, балансу и справедливости; приятная, располагающая внешность; важны отношения и красота, трудно даются решения.',lagnaIs(6)],
+  ['Скорпион','Глубокий, страстный, скрытный; сильная воля и интуиция, проникаю в суть вещей; пронзительный взгляд; не прощаю предательства.',lagnaIs(7)],
+  ['Стрелец','Оптимизм, тяга к знаниям, философии, путешествиям и вере; прямота и честность; крупное сложение, любовь к свободе.',lagnaIs(8)],
+  ['Козерог','Серьёзность, ответственность и выдержка; добиваюсь целей трудом и терпением; выгляжу сдержанно или старше лет, костистое сложение.',lagnaIs(9)],
+  ['Водолей','Независимое, нестандартное мышление; гуманизм, дружелюбие, тяга к новому и необычному; держусь немного особняком.',lagnaIs(10)],
+  ['Рыбы','Мечтательность, сострадание, чувствительность и интуиция; тяга к духовному и творческому; мягкое сложение, большие выразительные глаза.',lagnaIs(11)],
+];
+const NAADI_GRAHA=[
+  ['Солнце в 1-м','Держусь прямо и авторитетно, выгляжу заметно; горд(а) и независим(а); тема отца и власти важна в жизни; бывают вопросы по сердцу или зрению.',planetIn1('Sun')],
+  ['Луна в 1-м','Лицо мягкое и округлое, настроение переменчиво; чувствителен(на) и заботлив(а); сильная связь с матерью; склонность к полноте или задержке воды.',planetIn1('Moon')],
+  ['Марс в 1-м','Энергичен(на) и спортивен(на), много физической силы; вспыльчив(а) и тороплив(а); на теле или лице есть шрамы, ожоги или отметины.',planetIn1('Mars')],
+  ['Меркурий в 1-м','Выгляжу заметно моложе своих лет, сложение тонкое; разговорчив(а), остроумен(на) и сообразителен(на).',planetIn1('Mercury')],
+  ['Юпитер в 1-м','Склонность к полноте и крупному сложению; вызываю уважение и доверие; оптимизм, тяга наставлять и учить, нравственные принципы.',planetIn1('Jupiter')],
+  ['Венера в 1-м','Привлекательная, приятная внешность; любовь к красоте, комфорту и искусству; обаяние и мягкость в общении.',planetIn1('Venus')],
+  ['Сатурн в 1-м','Худощавое или костистое сложение, выгляжу старше или серьёзнее лет; сдержан(а) и терпелив(а); рано пришлось взять ответственность, ранние трудности.',planetIn1('Saturn')],
+  ['Раху в 1-м','Необычная, запоминающаяся внешность или судьба; сильные амбиции, тяга к чужому, заграничному, нестандартному; внутреннее беспокойство.',planetIn1('Rahu')],
+  ['Кету в 1-м','Ощущение отстранённости, «не от мира сего»; духовные поиски и интуиция; бываю скрытен(на), порой чувствую себя непонятым(ой).',planetIn1('Ketu')],
+];
+// единый список с id
+const NAADI=[];
+NAADI_LAGNA.forEach((s,i)=>NAADI.push({id:'L'+i, group:'lagna', title:s[0], text:s[1], cond:s[2]}));
+NAADI_GRAHA.forEach((s,i)=>NAADI.push({id:'G'+i, group:'graha', title:s[0], text:s[1], cond:s[2]}));
+const RATING_VAL={1:-1, 2:-0.5, 3:0, 4:0.5, 5:1};
+
 // оценка одного события для кандидата
 function scoreEvent(chart,tl,ev){
   const d=dashaAt(tl, ev.ms);
@@ -619,6 +693,40 @@ function collectEvents(){
   return out;
 }
 
+/* ── наади: рендер шкал и сбор ответов ── */
+function buildNaadi(){
+  const wrap=document.getElementById('naadiList');
+  function stHtml(st){
+    let btns='';
+    for(let v=1;v<=5;v++) btns+='<button type="button" data-v="'+v+'">'+v+'</button>';
+    return '<div class="naadi-st"><div class="naadi-text">'+esc(st.text)+'</div>'+
+           '<div class="scale" data-id="'+st.id+'">'+btns+'</div></div>';
+  }
+  let html='<div class="naadi-sub">Облик и характер (восходящий знак)</div>';
+  html+=NAADI.filter(s=>s.group==='lagna').map(stHtml).join('');
+  html+='<div class="naadi-sub">Особенности облика и натуры (планеты в 1-м доме)</div>';
+  html+=NAADI.filter(s=>s.group==='graha').map(stHtml).join('');
+  wrap.innerHTML=html;
+  wrap.querySelectorAll('.scale').forEach(sc=>{
+    sc.addEventListener('click',e=>{
+      const b=e.target.closest('button'); if(!b) return;
+      const cur=sc.getAttribute('data-val');
+      if(cur===b.dataset.v){ sc.removeAttribute('data-val'); b.classList.remove('on'); return; } // повторный клик снимает
+      sc.setAttribute('data-val',b.dataset.v);
+      sc.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+    });
+  });
+}
+buildNaadi();
+function collectNaadi(){
+  const vals={}; let answered=false;
+  document.querySelectorAll('#naadiList .scale').forEach(sc=>{
+    const v=sc.getAttribute('data-val');
+    if(v){ vals[sc.dataset.id]=RATING_VAL[+v]; answered=true; }
+  });
+  return {vals, answered};
+}
+
 /* ════════════════════════════════════════════════════════════════════
    ГЛАВНЫЙ РАСЧЁТ
    ════════════════════════════════════════════════════════════════════ */
@@ -665,6 +773,8 @@ async function runRectification(){
   const midMin=Math.round((fromMin+toM)/2);
   const offAt=mn=>{ const m=moment.tz([y,mo-1,d,Math.floor(mn/60),mn%60],zone); return m.isValid()? m.utcOffset()/60 : 0; };
 
+  const naadi=collectNaadi();
+
   // перебор кандидатов
   const cands=[];
   for(let t=fromMin; t<=toM; t+=step){
@@ -672,15 +782,31 @@ async function runRectification(){
     const tz=offAt(t);
     const chart=computeChart(y,mo,d,h,mi,tz,lat,lon);
     const tl=buildTimeline(chart);
-    let score=0; const evDetails=[];
-    for(const ev of events){
-      const s=scoreEvent(chart,tl,ev);
-      score+=s.score; evDetails.push(s.detail);
+    let evScore=0; const evDetails=[];
+    for(const ev of events){ const s=scoreEvent(chart,tl,ev); evScore+=s.score; evDetails.push(s.detail); }
+    let naScore=0; const claims=[];
+    for(const st of NAADI){
+      if(st.cond(chart)){ claims.push(st); const uv=naadi.vals[st.id]; if(uv) naScore+=uv; }
     }
-    cands.push({t,h,mi,tz,chart,tl,score,evDetails,
+    cands.push({t,h,mi,tz,chart,tl,evScore,naScore,evDetails,claims,
       lagSign:signIdx(chart.pos.Lagna),
       lagNak:Math.floor(nd(chart.pos.Lagna)/(360/27))});
     if(t!==toM && t+step>toM) t=toM-step; // гарантируем последнюю точку
+  }
+
+  const haveEvents=events.length>0;
+  const haveNaadi=naadi.answered;
+  const haveRank=haveEvents||haveNaadi;
+
+  // нормировка каждого метода по диапазону среди кандидатов, затем среднее
+  function normer(get){ const arr=cands.map(get); const mn=Math.min(...arr), mx=Math.max(...arr), r=mx-mn;
+    return v=> r<1e-9?0.5:(v-mn)/r; }
+  const nE=normer(c=>c.evScore), nN=normer(c=>c.naScore);
+  for(const c of cands){
+    let s=0,w=0;
+    if(haveEvents){ s+=nE(c.evScore); w++; }
+    if(haveNaadi){ s+=nN(c.naScore); w++; }
+    c.total=w?s/w:0;
   }
 
   // блоки по восходящему знаку (= таймлайн Лагны)
@@ -690,31 +816,31 @@ async function runRectification(){
     if(last && last.lagSign===c.lagSign){ last.toT=c.t; last.cands.push(c); }
     else blocks.push({lagSign:c.lagSign, fromT:c.t, toT:c.t, cands:[c]});
   }
-  for(const b of blocks){ b.best=b.cands.reduce((a,c)=>c.score>a.score?c:a, b.cands[0]); }
+  for(const b of blocks){ b.best=b.cands.reduce((a,c)=>c.total>a.total?c:a, b.cands[0]); }
 
-  const maxScore=Math.max(1e-9,...cands.map(c=>c.score));
-  const haveEvents=events.length>0;
+  const maxTotal=Math.max(1e-9,...cands.map(c=>c.total));
 
   let html='';
 
-  if(haveEvents){
-    // рейтинг блоков по событиям
-    const ranked=[...blocks].sort((a,b)=>b.best.score-a.best.score);
+  if(haveRank){
+    const ranked=[...blocks].sort((a,b)=>b.best.total-a.best.total);
     const top=ranked[0];
+    const methodsStr = haveEvents&&haveNaadi ? 'по событиям жизни и наади-портрету'
+      : haveEvents ? 'по событиям жизни (Вимшоттари-даши)' : 'по наади-портрету (Лагна и планеты в 1-м доме)';
     html+='<div class="best-card">'+
       '<div class="best-label">Наиболее вероятное время рождения</div>'+
       '<div class="best-time">'+fmtMinHtml(top.best.t)+'</div>'+
       '<div class="best-sub">восходит '+SIGN_RU[top.lagSign]+' · Лагна-накшатра '+NAKSHATRAS[top.best.lagNak]+
-        ' · совпадение '+Math.round(100*top.best.score/maxScore)+'%</div></div>';
+        ' · совпадение '+Math.round(100*top.best.total/maxTotal)+'%</div></div>';
 
-    html+='<p class="note" style="margin-top:12px">Совпадение — насколько управители Вимшоттари-периодов '+
-      'и дома гороскопа (от восходящего знака) соответствуют датам ваших событий. Сравните верхние строки '+
+    html+='<p class="note" style="margin-top:12px">Рейтинг построен <b>'+methodsStr+'</b>. '+
+      'Совпадение — насколько карта времени соответствует вашим данным. Сравните верхние строки '+
       'и подтвердите выбор по характеру и облику жизни.</p>';
 
     html+='<h3 class="block-title">Рейтинг времён (по восходящим знакам)</h3>';
     html+='<table class="rtable"><thead><tr><th>Время</th><th>Восходит</th><th>Лагна-накшатра</th><th class="scorecell">Совпадение</th></tr></thead><tbody>';
     ranked.forEach((b,i)=>{
-      const pct=Math.round(100*b.best.score/maxScore);
+      const pct=Math.round(100*b.best.total/maxTotal);
       html+='<tr'+(i===0?' class="top"':'')+'>'+
         '<td><b>'+fmtMin(b.best.t)+'</b><div class="why">окно '+fmtMin(b.fromT)+'–'+fmtMin(b.toT)+'</div></td>'+
         '<td>'+SIGN_RU[b.lagSign]+'</td>'+
@@ -723,25 +849,46 @@ async function runRectification(){
     });
     html+='</tbody></table>';
 
-    // разбор лучшего времени по событиям
-    html+='<h3 class="block-title">Почему '+fmtMin(top.best.t)+' — разбор по событиям</h3>';
-    html+='<table class="rtable"><thead><tr><th>Событие</th><th>Дата</th><th>Период (даша→антар→пратьянтар)</th><th>Поддержка</th></tr></thead><tbody>';
-    events.forEach((ev,i)=>{
-      const det=top.best.evDetails[i];
-      const t=EV_BY_ID[ev.type];
-      let dashaStr='—', support='—';
-      if(det && det.d){
-        dashaStr=DASHA_RU[det.d.maha]+' → '+DASHA_RU[det.d.antar]+' → '+DASHA_RU[det.d.prat];
-        const lords=[det.d.maha,det.d.antar,det.d.prat];
-        const hits=[];
-        if(lords.some(l=>t.karakas.includes(l))) hits.push('карака события');
-        if(lords.includes(det.hLordMain)) hits.push('хозяин '+t.house+'-го дома');
-        else if(lords.includes(det.hLordAlt)) hits.push('хозяин '+t.alt+'-го дома');
-        support=hits.length?hits.join(', '):'слабая связь';
+    // разбор по событиям
+    if(haveEvents){
+      html+='<h3 class="block-title">Почему '+fmtMin(top.best.t)+' — по событиям</h3>';
+      html+='<table class="rtable"><thead><tr><th>Событие</th><th>Дата</th><th>Период (даша→антар→пратьянтар)</th><th>Поддержка</th></tr></thead><tbody>';
+      events.forEach((ev,i)=>{
+        const det=top.best.evDetails[i];
+        const t=EV_BY_ID[ev.type];
+        let dashaStr='—', support='—';
+        if(det && det.d){
+          dashaStr=DASHA_RU[det.d.maha]+' → '+DASHA_RU[det.d.antar]+' → '+DASHA_RU[det.d.prat];
+          const lords=[det.d.maha,det.d.antar,det.d.prat];
+          const hits=[];
+          if(lords.some(l=>t.karakas.includes(l))) hits.push('карака события');
+          if(lords.includes(det.hLordMain)) hits.push('хозяин '+t.house+'-го дома');
+          else if(lords.includes(det.hLordAlt)) hits.push('хозяин '+t.alt+'-го дома');
+          support=hits.length?hits.join(', '):'слабая связь';
+        }
+        html+='<tr><td>'+esc(t.label)+'</td><td>'+fmtDate(ev.dv)+'</td><td>'+dashaStr+'</td><td>'+support+'</td></tr>';
+      });
+      html+='</tbody></table>';
+    }
+
+    // разбор по наади
+    if(haveNaadi){
+      html+='<h3 class="block-title">Что карта времени '+fmtMin(top.best.t)+' говорит о вас</h3>';
+      const claims=top.best.claims;
+      if(claims.length){
+        html+='<div>';
+        for(const st of claims){
+          const uv=naadi.vals[st.id];
+          let mark='<span class="mark mid">•</span>', tail=' <span class="why">(вы это не оценивали)</span>';
+          if(uv>0){ mark='<span class="mark yes">✓</span>'; tail=' <span class="why">(отметили: похоже на вас — в пользу этого времени)</span>'; }
+          else if(uv<0){ mark='<span class="mark no">✗</span>'; tail=' <span class="why">(отметили: не про вас — против этого времени)</span>'; }
+          html+='<div class="naadi-claim">'+mark+esc(st.text)+tail+'</div>';
+        }
+        html+='</div>';
+      } else {
+        html+='<p class="note">Карта этого времени не утверждает отмеченных портретных признаков.</p>';
       }
-      html+='<tr><td>'+esc(t.label)+'</td><td>'+fmtDate(ev.dv)+'</td><td>'+dashaStr+'</td><td>'+support+'</td></tr>';
-    });
-    html+='</tbody></table>';
+    }
   }
 
   // таймлайн восходящих знаков (всегда)
