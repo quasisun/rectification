@@ -250,7 +250,10 @@
       насколько управители периодов и дома гороскопа соответствуют датам реальных событий);
       и <b>техника наади</b> (человек оценивает по 5-балльной шкале портретные высказывания,
       привязанные к восходящему знаку и планетам в 1-м доме, — выбирается время, чьё
-      описание ближе всего). Расчёт ведический, сидерический,
+      описание ближе всего); и <b>под-владыка Лагны (KP)</b> — самый точный, минутный
+      инструмент: восходящий градус делится на под-периоды (накшатра-владыка → суб-владыка),
+      меняющиеся каждые несколько минут, и время уточняется по совпадению этих под-периодов
+      с реальными событиями. Расчёт ведический, сидерический,
       аянамша Лахири (Читрапакша), швейцарские эфемериды. Результат — вспомогательная
       оценка, а не замена работе астролога: окончательное время подтверждается
       проверкой по нескольким событиям и здравым смыслом.
@@ -455,6 +458,34 @@ function dashaAt(tl, dateMs){
   const prats=subPeriods(antar.lord,antar.startDay,antar.endDay-antar.startDay);
   const prat=prats.find(p=>elapsed>=p.startDay&&elapsed<p.endDay)||prats[0];
   return {maha:maha.lord, antar:antar.lord, prat:prat.lord};
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   KP — под-владыки восходящего градуса (Sign → Star/накшатра-владыка →
+   Sub → Sub-sub). Делят накшатру (13°20') в пропорциях Вимшоттари,
+   начиная с владыки накшатры. Суб-владыца Лагны меняется каждые ~2–4 мин
+   и служит точечным инструментом ректификации (Кришнамурти Паддхати).
+   ════════════════════════════════════════════════════════════════════ */
+const NAK_SPAN=360/27; // 13.3333°
+// последовательность владык накшатр = вимшоттари, начиная с Кету (Ашвини)
+function starLordOf(nakIdx){ return DASHA_LORDS[nakIdx%9]; }
+// разбить span на 9 частей вимшоттари начиная с владыки lord; найти, в какую попадает p (0..span)
+function vimSplit(lord, span, p){
+  const start=DASHA_LORDS.indexOf(lord); let acc=0;
+  for(let k=0;k<9;k++){
+    const L=DASHA_LORDS[(start+k)%9], w=span*(DASHA_YEARS[L]/120);
+    if(p<acc+w || k===8) return {lord:L, start:acc, span:w};
+    acc+=w;
+  }
+}
+function kpLords(lon){
+  lon=nd(lon);
+  const nakIdx=Math.floor(lon/NAK_SPAN);
+  const starLord=starLordOf(nakIdx);
+  const pInNak=lon-nakIdx*NAK_SPAN;
+  const sub=vimSplit(starLord, NAK_SPAN, pInNak);
+  const subsub=vimSplit(sub.lord, sub.span, pInNak-sub.start);
+  return {sign:signIdx(lon), nakIdx, starLord, subLord:sub.lord, subSubLord:subsub.lord};
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -870,6 +901,14 @@ async function runRectification(){
     for(let i=0;i<22 && (t1-t0)>0.2;i++){ const tm=(t0+t1)/2; if(lagSignAt(tm)===s0) t0=tm; else t1=tm; }
     return t1; // первая минута нового знака
   }
+  // обобщённый поиск границы по ключу (для KP суб-владыки)
+  function refineChange(t0,t1,keyFn){
+    const k0=keyFn(t0);
+    for(let i=0;i<24 && (t1-t0)>0.05;i++){ const tm=(t0+t1)/2; if(keyFn(tm)===k0) t0=tm; else t1=tm; }
+    return t1;
+  }
+  const kpAt=t=>kpLords(ascSidAt(t));
+  const kpKey=t=>{ const k=kpAt(t); return k.sign+'|'+k.starLord+'|'+k.subLord; };
   // полосы восходящего знака на весь день (00:00–24:00), точные времена смены
   const COARSE=6;
   const dayBands=[]; let prevSign=lagSignAt(0), bandStart=0;
@@ -1011,6 +1050,43 @@ async function runRectification(){
       '<span class="seg-sign">'+SIGN_RU[b.sign]+'</span>'+(hasRec?' <span class="why">↦ записанное '+fmtMin(recMin)+'</span>':'')+'</li>';
   }
   html+='</ul>';
+
+  // ── KP: точная сетка суб-владыки восходящего градуса по минутам ──
+  // сегменты в пределах окна поиска (где меняется sign/накшатра/суб)
+  const a0=fromMin, a1=Math.max(toM, fromMin+1);
+  const KPCO=1; // минутный шаг сканирования
+  const kpSegs=[]; let ks=a0, pk=kpKey(a0);
+  for(let t=a0+KPCO;t<=a1+1e-6;t+=KPCO){
+    const tt=Math.min(t,a1), k=kpKey(tt);
+    if(k!==pk){ const b=refineChange(tt-KPCO,tt,kpKey); kpSegs.push({fromT:ks,toT:b,lords:kpAt((ks+b)/2)}); ks=b; pk=kpKey(tt); }
+  }
+  kpSegs.push({fromT:ks,toT:a1,lords:kpAt((ks+a1)/2)});
+
+  const kpRec = recMin!==null ? kpAt(recMin) : null;
+  html+='<h3 class="block-title">Под-владыка Лагны (KP) — точная сетка по минутам</h3>';
+  html+='<p class="note"><b>Самый точный инструмент.</b> Восходящий градус внутри знака делится '+
+    'на под-периоды (накшатра-владыка → <b>суб-владыка</b>), которые меняются каждые ~2–6 минут. '+
+    'Именно по смене суб-владыки время уточняют до минут. '+(recMin!==null?'↦ — ваше записанное время. ':'')+
+    'Сопоставьте сегменты с реальными событиями жизни (метод KP «правящих планет»), '+
+    'чтобы выбрать точную минуту.</p>';
+  if(kpRec){
+    html+='<p class="note">На <b>'+fmtMin(recMin)+'</b>: '+SIGN_RU[kpRec.sign]+' · накшатра-владыка <b>'+
+      DASHA_RU[kpRec.starLord]+'</b> · суб-владыка <b>'+DASHA_RU[kpRec.subLord]+'</b> · суб-суб <b>'+
+      DASHA_RU[kpRec.subSubLord]+'</b>.</p>';
+  }
+  const MAXROWS=80;
+  html+='<ul class="seg-list">';
+  kpSegs.slice(0,MAXROWS).forEach(s=>{
+    const hasRec = recMin!==null && recMin>=s.fromT-1e-9 && recMin<s.toT+1e-9;
+    html+='<li'+(hasRec?' style="font-weight:700"':'')+'><span class="seg-time">'+
+      fmtMin(Math.round(s.fromT))+' – '+fmtMin(Math.round(s.toT))+'</span> · '+
+      SIGN_RU[s.lords.sign]+' · накш. <span class="seg-sign">'+DASHA_RU[s.lords.starLord]+'</span>'+
+      ' · суб <span class="seg-sign">'+DASHA_RU[s.lords.subLord]+'</span>'+
+      (hasRec?' <span class="why">↦ записанное '+fmtMin(recMin)+'</span>':'')+'</li>';
+  });
+  html+='</ul>';
+  if(kpSegs.length>MAXROWS) html+='<p class="note">Показаны первые '+MAXROWS+' сегментов из '+kpSegs.length+
+    ' — сузьте диапазон ректификации, чтобы увидеть все.</p>';
 
   // провенанс
   const offMid=offAt(midMin);
