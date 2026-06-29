@@ -1,0 +1,25 @@
+<!-- ─────────────────────────────────────────────────────────────
+     ВСТАВКА В ТИЛЬДУ
+     Блок T123 «HTML-код» (Библиотека блоков → Другое → Контент).
+     Скопировать всё ниже. Работает после публикации страницы.
+     Приложение само шлёт свою высоту ({rectifyHeight}) — iframe
+     подстраивается, внутренней прокрутки нет.
+     ───────────────────────────────────────────────────────────── -->
+<div style="max-width:760px;margin:0 auto;">
+  <iframe id="rectifyFrame"
+          src="https://quasisun.github.io/rectification/"
+          title="Ректификация времени рождения"
+          loading="lazy" scrolling="no"
+          style="width:100%;border:0;display:block;min-height:1000px;"></iframe>
+</div>
+<script>
+(function(){
+  var f=document.getElementById('rectifyFrame');
+  window.addEventListener('message',function(e){
+    if(e.origin!=='https://quasisun.github.io') return;
+    if(e.data && typeof e.data.rectifyHeight==='number'){
+      f.style.height=(e.data.rectifyHeight+24)+'px';
+    }
+  });
+})();
+</script>
