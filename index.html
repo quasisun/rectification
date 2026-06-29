@@ -100,6 +100,21 @@
   .calc-details b{color:var(--c-ink)}
   .err{color:var(--c-red);font-weight:600}
   .note{font-size:.86rem;color:var(--c-ink-soft);line-height:1.5}
+
+  .corridor-card{margin:8px 0 4px;border-radius:16px;text-align:center;
+    background:linear-gradient(135deg,var(--c-red) 0%,var(--c-orange) 100%);color:#fff;padding:20px 18px}
+  .corridor-card .cc-label{font-size:.9rem;letter-spacing:.04em;text-transform:uppercase;opacity:.92}
+  .corridor-card .cc-range{font-family:var(--font-display);font-weight:400;line-height:1.1;
+    font-size:clamp(2.2rem,8vw,3.2rem);margin:4px 0 2px}
+  .corridor-card .cc-range .colon{font-family:Arial,sans-serif;font-weight:700;font-size:.78em;margin:0 .03em}
+  .corridor-card .cc-sub{font-size:.95rem;opacity:.95}
+
+  .consult-cta{margin:22px 0 4px;border:2px solid var(--c-orange);border-radius:16px;
+    padding:20px 18px;text-align:center;background:#fff5f1}
+  .consult-cta .cta-title{font-family:var(--font-display);font-weight:400;color:var(--c-red);
+    font-size:clamp(1.5rem,5vw,2rem);line-height:1.15;margin-bottom:8px}
+  .consult-cta p{font-size:.9rem;color:var(--c-ink);line-height:1.5;margin:0 0 14px}
+  .consult-cta .astro-btn{display:inline-block;text-decoration:none}
 </style>
 </head>
 
@@ -494,6 +509,8 @@ function kpLords(lon){
 const EVENT_TYPES=[
   {id:'marriage',   label:'Брак / свадьба',                 house:7,  alt:2,  karakas:['Venus','Jupiter']},
   {id:'child',      label:'Рождение ребёнка',               house:5,  alt:9,  karakas:['Jupiter']},
+  {id:'romance',    label:'Начало важных отношений / близость', house:5, alt:7, karakas:['Venus','Mars']},
+  {id:'higher_ed',  label:'Высшее образование / магистратура',  house:9, alt:4, karakas:['Jupiter','Mercury']},
   {id:'career',     label:'Новая работа / повышение',       house:10, alt:6,  karakas:['Sun','Saturn','Mercury']},
   {id:'job_loss',   label:'Потеря работы / спад',           house:10, alt:8,  karakas:['Saturn','Ketu']},
   {id:'property',   label:'Покупка жилья / недвижимость',    house:4,  alt:11, karakas:['Mars','Venus']},
@@ -523,6 +540,23 @@ function planetsInHouse(chart,house){
   const out=[];
   for(const k of PLANETS9) if(houseFromLagna(chart.pos[k],chart.pos.Lagna)===house) out.push(k);
   return out;
+}
+// даша на дату до сукшмы (4 уровня)
+function dashaLevels(tl,ms){
+  const el=(ms-tl.birthMs)/86400000; const find=a=>a.find(x=>el>=x.startDay&&el<x.endDay);
+  const maha=find(tl.mahas); if(!maha) return null;
+  const A=subPeriods(maha.lord,maha.startDay,maha.endDay-maha.startDay); const an=find(A)||A[0];
+  const P=subPeriods(an.lord,an.startDay,an.endDay-an.startDay); const pr=find(P)||P[0];
+  const S=subPeriods(pr.lord,pr.startDay,pr.endDay-pr.startDay); const so=find(S)||S[0];
+  return {maha:maha.lord, antar:an.lord, prat:pr.lord, sook:so.lord};
+}
+// сигнификаторы события для карты: натуральные караки + хозяева/обитатели значимых домов
+function significatorsOf(chart, evType){
+  const t=EV_BY_ID[evType]; const s=new Set(t.karakas);
+  s.add(lordOfHouse(chart,t.house)); s.add(lordOfHouse(chart,t.alt));
+  planetsInHouse(chart,t.house).forEach(p=>s.add(p));
+  planetsInHouse(chart,t.alt).forEach(p=>s.add(p));
+  return s;
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -838,6 +872,9 @@ function fmtMin(t){ const h=Math.floor(t/60), m=t%60; return String(h).padStart(
 function fmtMinHtml(t){ const h=Math.floor(t/60), m=t%60; return String(h).padStart(2,'0')+'<span class="colon">:</span>'+String(m).padStart(2,'0'); }
 function fmtDate(dv){ const [y,m,d]=dv.split('-'); return +d+' '+MONTHS[+m-1]+' '+y; }
 
+// ССЫЛКА НА КОНСУЛЬТАЦИЮ (заменить на прямую ссылку записи/товара корзины)
+const CONSULT_URL='https://goroskop1008.ru/';
+
 document.getElementById('calcBtn').addEventListener('click',runRectification);
 
 async function runRectification(){
@@ -920,7 +957,7 @@ async function runRectification(){
   const wb=[];
   for(const b of dayBands){
     const f=Math.max(b.fromT,fromMin), tt=Math.min(b.toT,toM);
-    if(tt>=f-1e-9 && (b.toT>fromMin && b.fromT<toM+1e-9)){
+    if(tt-f>1){ // существенное пересечение с окном (не край в край)
       const rep=Math.min(Math.max((f+tt)/2,fromMin),toM);
       wb.push({sign:b.sign, fromT:b.fromT, toT:b.toT, repT:rep});
     }
@@ -955,63 +992,77 @@ async function runRectification(){
   const rng=b=>'с '+fmtMin(Math.round(b.fromT))+' до '+fmtMin(Math.round(b.toT));
   const recInBand=b=>recMin!==null && recMin>=b.fromT-1e-9 && recMin<=b.toT+1e-9;
   const single = wb.length===1;
-  const ranked=[...wb].sort((a,b)=>b.total-a.total);
-  const top = (haveRank? ranked[0] : (wb.find(recInBand) || wb[0]));
+
+  // ЯКОРЬ знака: записанное время → наади-портрет → единственная полоса.
+  // События ЗНАК НЕ выбирают (это ненадёжно), они только сужают ВНУТРИ знака.
+  let anchorBand=null, anchorBy='';
+  if(recMin!==null){ anchorBand=wb.find(recInBand)||null; if(anchorBand) anchorBy='записанному времени'; }
+  if(!anchorBand && haveNaadi){ const r=[...wb].sort((a,b)=>b.naScore-a.naScore); if(r.length && r[0].naScore>0){ anchorBand=r[0]; anchorBy='наади-портрету'; } }
+  if(!anchorBand && single){ anchorBand=wb[0]; anchorBy='окну поиска'; }
+  const top = anchorBand || wb[0];
 
   let html='';
 
-  // ── карточка: ответ = ВОСХОДЯЩИЙ ЗНАК и его точная полоса (без фальшивой минуты) ──
-  const methodsStr = haveEvents&&haveNaadi ? 'по событиям жизни и наади-портрету'
-    : haveEvents ? 'по событиям жизни (Вимшоттари-даши)' : haveNaadi ? 'по наади-портрету (самоописание и партнёр)' : '';
-  let recNote='';
-  if(recMin!==null){
-    if(recInBand(top)) recNote=' · записанное '+fmtMin(recMin)+' попадает в эту полосу';
-    else { const edge=recMin<top.fromT?top.fromT:top.toT; recNote=' · записанное '+fmtMin(recMin)+' вне полосы (граница '+fmtMin(Math.round(edge))+')'; }
-  }
-  html+='<div class="best-card">'+
-    '<div class="best-label">'+(single?'Восходящий знак в этом интервале':(haveRank?'Наиболее вероятный восходящий знак':'Восходящие знаки в интервале'))+'</div>'+
-    '<div class="best-time">'+SIGN_RU[top.sign]+'</div>'+
-    '<div class="best-sub">восходит '+rng(top)+(haveRank&&!single?' · совпадение '+Math.round(100*top.total/maxTotal)+'%':'')+recNote+'</div></div>';
-
-  // честное пояснение про точность
-  html+='<p class="note" style="margin-top:12px">'+
-    'Восходящий знак держится около двух часов и внутри него меняется медленно, поэтому '+
-    '<b>точную минуту рождения по одному знаку определить нельзя</b> — программа честно показывает '+
-    '<b>полосу</b> и точные времена смены знака. '+
-    (haveRank? 'Рейтинг знаков ниже построен <b>'+methodsStr+'</b>. ' : 'Чтобы сузить — добавьте события жизни или отметьте наади-портрет; для минутной точности нужны тонкие методы (под-владыка Лагны, дробные карты), их добавим следующими. ')+
-    'Окончательный выбор подтверждайте по облику и характеру.</p>';
-
-  // рейтинг полос (если несколько и есть метод)
-  if(haveRank && wb.length>1){
-    html+='<h3 class="block-title">Рейтинг восходящих знаков в окне</h3>';
-    html+='<table class="rtable"><thead><tr><th>Восходит</th><th>Полоса</th><th>Лагна-накшатра (середина)</th><th class="scorecell">Совпадение</th></tr></thead><tbody>';
-    ranked.forEach((b,i)=>{
-      const pct=Math.round(100*b.total/maxTotal);
-      html+='<tr'+(i===0?' class="top"':'')+'>'+
-        '<td><b>'+SIGN_RU[b.sign]+'</b></td>'+
-        '<td>'+fmtMin(Math.round(b.fromT))+'–'+fmtMin(Math.round(b.toT))+(recInBand(b)?' ✓':'')+'</td>'+
-        '<td>'+NAKSHATRAS[b.lagNak]+'</td>'+
-        '<td class="scorecell">'+pct+'%<div class="scorebar" style="width:'+Math.max(2,pct)+'%"></div></td></tr>';
-    });
-    html+='</tbody></table>';
+  if(anchorBand){
+    let recNote='';
+    if(recMin!==null){
+      if(recInBand(anchorBand)) recNote=' · записанное '+fmtMin(recMin)+' попадает в эту полосу';
+      else { const edge=recMin<anchorBand.fromT?anchorBand.fromT:anchorBand.toT; recNote=' · записанное '+fmtMin(recMin)+' рядом (граница '+fmtMin(Math.round(edge))+')'; }
+    }
+    html+='<div class="best-card"><div class="best-label">Восходящий знак'+(single?' в этом интервале':' (по '+anchorBy+')')+'</div>'+
+      '<div class="best-time">'+SIGN_RU[anchorBand.sign]+'</div>'+
+      '<div class="best-sub">восходит '+rng(anchorBand)+recNote+'</div></div>';
+    html+='<p class="note" style="margin-top:12px">Знак закреплён по <b>'+anchorBy+'</b> (события знак не выбирают — это ненадёжно). '+
+      'Внутри знака (≈2 ч) время уточняется событиями — ниже коридор и доказательства; '+
+      '<b>точную минуту ставит астролог на консультации</b>.</p>';
+  } else {
+    html+='<div class="best-card"><div class="best-label">В окне восходят несколько знаков</div>'+
+      '<div class="best-time" style="font-size:clamp(1.5rem,5.5vw,2.3rem)">'+wb.map(b=>SIGN_RU[b.sign]).join(' · ')+'</div>'+
+      '<div class="best-sub">укажите записанное время или отметьте наади-портрет</div></div>';
+    html+='<p class="note" style="margin-top:12px">Чтобы выбрать знак, задайте <b>записанное время</b> (поле выше) '+
+      'или отметьте <b>наади-портрет</b> — событийный рейтинг знаков ненадёжен, поэтому «угадайкой» знак не ставим. '+
+      'Полосы восходящих знаков с точными временами — в таймлайне ниже.</p>';
   }
 
-  // разбор по событиям для лучшей полосы
-  if(haveEvents){
-    html+='<h3 class="block-title">Почему '+SIGN_RU[top.sign]+' — по событиям</h3>';
-    html+='<table class="rtable"><thead><tr><th>Событие</th><th>Дата</th><th>Период (даша→антар→пратьянтар)</th><th>Поддержка</th></tr></thead><tbody>';
-    events.forEach((ev,i)=>{
-      const det=top.evDetails[i];
-      const t=EV_BY_ID[ev.type];
-      let dashaStr='—', support='—';
-      if(det && det.d){
-        dashaStr=DASHA_RU[det.d.maha]+' → '+DASHA_RU[det.d.antar]+' → '+DASHA_RU[det.d.prat];
-        const lords=[det.d.maha,det.d.antar,det.d.prat];
-        const hits=[];
-        if(lords.some(l=>t.karakas.includes(l))) hits.push('карака события');
-        if(lords.includes(det.hLordMain)) hits.push('хозяин '+t.house+'-го дома');
-        else if(lords.includes(det.hLordAlt)) hits.push('хозяин '+t.alt+'-го дома');
-        support=hits.length?hits.join(', '):'слабая связь';
+  // ── авто-сужение до коридора по событиям (сдвиг антардаши внутри знака) ──
+  let corridor=null;
+  if(anchorBand && haveEvents && (anchorBand.toT-anchorBand.fromT)>16){
+    const a=Math.max(anchorBand.fromT,fromMin), b=Math.min(anchorBand.toT,toM);
+    // считаем для каждой минуты, у скольких событий АНТАРДАША = сигнификатор (устойчивый различитель)
+    const scoreAntar=t=>{ const h=Math.floor(t/60),mi=t-h*60,tz=offAt(t);
+      const ch=computeChart(y,mo,d,h,mi,tz,lat,lon), tl=buildTimeline(ch); let s=0;
+      for(const ev of events){ const dl=dashaLevels(tl,ev.ms); if(!dl) continue;
+        if(significatorsOf(ch,ev.type).has(dl.antar)) s++; }
+      return s; };
+    const pts=[]; for(let t=Math.ceil(a);t<=Math.floor(b);t++) pts.push({t,s:scoreAntar(t)});
+    if(pts.length){ const mx=Math.max(...pts.map(p=>p.s));
+      if(mx>0){ const hit=pts.filter(p=>p.s===mx); corridor={fromT:hit[0].t, toT:hit[hit.length-1].t, hits:mx, of:events.length}; } }
+  }
+  if(corridor){
+    html+='<h3 class="block-title">Вероятный коридор времени</h3>';
+    html+='<div class="corridor-card"><div class="cc-label">Сужено по вашим событиям</div>'+
+      '<div class="cc-range">'+fmtMinHtml(corridor.fromT)+'&nbsp;–&nbsp;'+fmtMinHtml(corridor.toT)+'</div>'+
+      '<div class="cc-sub">внутри знака '+SIGN_RU[top.sign]+' · '+Math.max(1,(corridor.toT-corridor.fromT))+'&nbsp;мин · '+
+      'антардаша совпала у '+corridor.hits+' из '+corridor.of+' событий</div></div>';
+    html+='<p class="note">В этом коридоре антардаши ваших событий совпадают со значимыми домами и караками '+
+      '(самый устойчивый признак). <b>Точную минуту внутри коридора определяют на консультации</b> — '+
+      'по KP-суб-владыкам, дробным картам и сверке событий, точных до часа.</p>';
+  }
+
+  // разбор по событиям — на центре коридора (или середине полосы), согласованно с коридором
+  if(anchorBand && haveEvents){
+    const evalT=Math.round(corridor? (corridor.fromT+corridor.toT)/2 : top.repT);
+    const eh=Math.floor(evalT/60), emi=evalT-eh*60, etz=offAt(evalT);
+    const echart=computeChart(y,mo,d,eh,emi,etz,lat,lon), etl=buildTimeline(echart);
+    html+='<h3 class="block-title">Разбор по событиям (на '+fmtMin(evalT)+')</h3>';
+    html+='<table class="rtable"><thead><tr><th>Событие</th><th>Дата</th><th>Период (даша→антар→пратьянтар)</th><th>Совпадение</th></tr></thead><tbody>';
+    events.forEach(ev=>{
+      const t=EV_BY_ID[ev.type]; const dl=dashaLevels(etl,ev.ms); const sig=significatorsOf(echart,ev.type);
+      let dashaStr='—', support='слабая связь';
+      if(dl){
+        dashaStr=DASHA_RU[dl.maha]+' → '+DASHA_RU[dl.antar]+' → '+DASHA_RU[dl.prat];
+        const hit=[]; if(sig.has(dl.maha))hit.push('махадаша'); if(sig.has(dl.antar))hit.push('антардаша'); if(sig.has(dl.prat))hit.push('пратьянтара');
+        if(hit.length) support=hit.join(' / ')+' — сигнификатор';
       }
       html+='<tr><td>'+esc(t.label)+'</td><td>'+fmtDate(ev.dv)+'</td><td>'+dashaStr+'</td><td>'+support+'</td></tr>';
     });
@@ -1019,7 +1070,7 @@ async function runRectification(){
   }
 
   // разбор по наади для лучшей полосы
-  if(haveNaadi){
+  if(anchorBand && haveNaadi){
     html+='<h3 class="block-title">Что карта знака '+SIGN_RU[top.sign]+' говорит о вас и партнёре</h3>';
     const claims=top.claims;
     if(claims.length){
@@ -1034,6 +1085,12 @@ async function runRectification(){
       html+='</div>';
     } else html+='<p class="note">Карта этого знака не утверждает отмеченных портретных признаков.</p>';
   }
+
+  // ── призыв на консультацию (точную минуту ставит астролог) ──
+  html+='<div class="consult-cta"><div class="cta-title">Нужна точная минута рождения?</div>'+
+    '<p>Программа надёжно сужает время до коридора. <b>Точную минуту</b> — по KP-суб-владыкам, '+
+    'дробным картам и сверке событий — астролог ставит на консультации, это уже работа эксперта, а не автоматический расчёт.</p>'+
+    '<a class="astro-btn" href="'+CONSULT_URL+'" target="_blank" rel="noopener">Записаться на консультацию</a></div>';
 
   // таймлайн восходящих знаков на ВЕСЬ ДЕНЬ (точные времена), с пометкой окна и записанного времени
   html+='<h3 class="block-title">Таймлайн восходящего знака — весь день</h3>';
