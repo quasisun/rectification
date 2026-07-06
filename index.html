@@ -7,6 +7,9 @@
 <link rel="stylesheet" href="astro-app.css">
 <style>
   /* ── дополнения только для этого приложения ── */
+  /* заголовок: перенос по словам, чтобы на мобильных не обрезался */
+  .astro-title{overflow-wrap:break-word;word-break:normal;hyphens:auto;
+    font-size:clamp(1.8rem,7vw,3.6rem)}
   .field-row{display:flex;gap:16px;flex-wrap:wrap}
   .field-row .astro-field{flex:1 1 160px;margin-bottom:16px}
 
@@ -30,6 +33,10 @@
   details.manual summary{cursor:pointer;padding:12px 0;color:var(--c-red);font-weight:600}
 
   /* окно времени */
+  .sex-toggle{display:flex;gap:8px}
+  .sex-toggle button{flex:1 1 0;padding:12px 10px;border-radius:10px;border:1.5px solid var(--c-line);
+    background:#fff;color:var(--c-ink);cursor:pointer;font-size:.95rem;font-weight:600}
+  .sex-toggle button.on{background:linear-gradient(135deg,var(--c-red),var(--c-orange));color:#fff;border-color:transparent}
   .win-presets{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 14px}
   .win-presets button{flex:0 0 auto;font-size:.85rem;padding:7px 12px;border-radius:999px;
     border:1.5px solid var(--c-line);background:#fff;color:var(--c-ink);cursor:pointer}
@@ -63,6 +70,10 @@
     background:#fff;color:var(--c-ink);cursor:pointer;font-size:.9rem;font-weight:600}
   .scale button:hover{border-color:var(--c-orange)}
   .scale button.on{background:linear-gradient(135deg,var(--c-red),var(--c-orange));color:#fff;border-color:transparent}
+  .fact{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--c-line);
+    font-size:.92rem;line-height:1.4;cursor:pointer}
+  .fact:first-of-type{border-top:none}
+  .fact input{width:20px;height:20px;margin-top:1px;flex:0 0 auto;accent-color:var(--c-red);cursor:pointer}
   .naadi-claim{padding:7px 0;border-top:1px solid var(--c-line);font-size:.9rem;line-height:1.45}
   .naadi-claim:first-child{border-top:none}
   .naadi-claim .mark{font-weight:700;margin-right:6px}
@@ -124,7 +135,7 @@
 <div class="astro-app">
 
   <header class="astro-header">
-    <h1 class="astro-title">Ректификация&nbsp;рождения</h1>
+    <h1 class="astro-title">Ректификация времени рождения</h1>
     <p class="astro-subtitle">Уточнение времени рождения · сидерический знак · аянамша Лахири</p>
   </header>
 
@@ -133,20 +144,18 @@
   <section class="astro-section">
     <div class="astro-card">
 
-      <!-- Место рождения -->
-      <div class="astro-field city-wrap">
-        <label for="city">Место рождения</label>
-        <input id="city" type="text" autocomplete="off" spellcheck="false"
-               placeholder="Начните вводить — Россия целиком, вкл. сёла и деревни">
-        <div id="acDrop" class="ac-dropdown" hidden></div>
-        <p id="cityChosen" class="city-chosen"></p>
-      </div>
-
-      <!-- Дата -->
+      <!-- Дата и пол -->
       <div class="field-row">
         <div class="astro-field">
           <label for="bdate">Дата рождения</label>
           <input id="bdate" type="date">
+        </div>
+        <div class="astro-field">
+          <label>Пол</label>
+          <div class="sex-toggle" id="sexToggle">
+            <button type="button" data-sex="f" class="on">Женский</button>
+            <button type="button" data-sex="m">Мужской</button>
+          </div>
         </div>
       </div>
 
@@ -201,6 +210,15 @@
         </div>
       </div>
 
+      <!-- Место рождения -->
+      <div class="astro-field city-wrap">
+        <label for="city">Место рождения</label>
+        <input id="city" type="text" autocomplete="off" spellcheck="false"
+               placeholder="Начните вводить — Россия целиком, вкл. сёла и деревни">
+        <div id="acDrop" class="ac-dropdown" hidden></div>
+        <p id="cityChosen" class="city-chosen"></p>
+      </div>
+
       <!-- Ручной пояс -->
       <details class="manual">
         <summary>Место не нашлось? Указать часовой пояс и координаты вручную</summary>
@@ -240,11 +258,12 @@
       <details class="naadi">
         <summary>Техника наади — отметьте, что про вас (по 5-балльной шкале)</summary>
         <p class="naadi-legend">
-          Отметьте <b>конкретные факты</b> о себе и близких (тело, первый муж, первый ребёнок,
-          родители, имущество) — они зависят от восходящего знака и помогают его выбрать.
-          Оценка: <b>1</b> — совсем не так, <b>3</b> — отчасти, <b>5</b> — точно так.
-          Пропущенное не учитывается. Отвечайте по фактам (что есть, а не по настроению);
-          про мужа — только про <b>первого</b>. Программа найдёт время, чьё описание ближе.
+          Отметьте <b>конкретные факты</b> о себе и близких (тело, первый супруг, первый
+          ребёнок, родители, имущество, особые обстоятельства) — они зависят от восходящего
+          знака и помогают его выбрать. Описания оцените по шкале <b>1</b> (совсем не так) …
+          <b>5</b> (точно так); особые обстоятельства — <b>галочками</b> «да, было/есть».
+          Отвечайте по фактам, а не по настроению; про супруга — только про <b>первого</b>.
+          Чем больше отмечено, тем увереннее выбор знака.
         </p>
         <div id="naadiList"></div>
       </details>
@@ -587,14 +606,14 @@ const NAADI_BODY=[
   ['Рост скорее высокий, сложение лёгкое; осанка прямая; выгляжу моложе лет.',elemH(1,2)],
   ['Тело мягкое, округлое, склонно удерживать воду; кожа нежная, черты плавные.',elemH(1,3)],
 ];
-// ПЕРВЫЙ МУЖ / ПАРТНЁР (7-й дом) — только первый/главный союз
+// ПЕРВЫЙ СУПРУГ(А) (7-й дом) — только первый союз; описания без рода (субъект добавляется по полу)
 const NAADI_SPOUSE=[
-  ['Мой первый муж — энергичный, независимый, прямой, с лидерскими чертами.',elemH(7,0)],
-  ['Первый муж — практичный, надёжный, основательный; ценит стабильность и достаток.',elemH(7,1)],
-  ['Первый муж — общительный, умный, контактный; ему важны разговоры и общение.',elemH(7,2)],
-  ['Первый муж — эмоциональный, заботливый, чувствительный, привязанный к дому.',elemH(7,3)],
-  ['Первый муж заметно старше или очень серьёзный; брак поздний, по долгу или с испытаниями.',plH('Saturn',7)],
-  ['Первый муж — иностранец, из другой культуры/среды, либо союз необычный и непростой.',plH('Rahu',7)],
+  ['энергичность, независимость, прямота, лидерство; порой вспыльчивость.',elemH(7,0)],
+  ['практичность, надёжность, основательность; ценит стабильность и достаток.',elemH(7,1)],
+  ['общительность, ум, контактность; важны разговоры и общение.',elemH(7,2)],
+  ['эмоциональность, забота, чувствительность, привязанность к дому.',elemH(7,3)],
+  ['зрелость и серьёзность, часто старше; брак поздний, по долгу или с испытаниями.',plH('Saturn',7)],
+  ['из другой страны, культуры или среды; союз необычный и непростой.',plH('Rahu',7)],
 ];
 // ПЕРВЫЙ РЕБЁНОК (5-й дом) — характер первенца
 const NAADI_CHILD=[
@@ -604,6 +623,7 @@ const NAADI_CHILD=[
   ['Первый ребёнок смышлёный, говорливый, любознательный, способный к учёбе.',plH('Mercury',5)],
   ['Первый ребёнок мягкий, ласковый, красивый, артистичный.',plH('Venus',5)],
   ['Первый ребёнок яркий, гордый, с достоинством, тянется к признанию.',plH('Sun',5)],
+  ['Первый ребёнок слабый здоровьем — часто болел(а) или есть проблемы со здоровьем.',c=>['Mars','Saturn','Rahu','Ketu'].some(p=>houseOf(c,p)===5)?1:0],
 ];
 // РОДИТЕЛИ (Луна — мать, Солнце — отец)
 const NAADI_PARENTS=[
@@ -619,14 +639,38 @@ const NAADI_ASSETS=[
   ['С жильём были трудности или задержки, либо я живу вдали от родного дома.',c=>(['Saturn','Rahu','Ketu'].some(p=>houseOf(c,p)===4)&&!['Jupiter','Venus','Moon'].some(p=>houseOf(c,p)===4))?1:0],
   ['Умею накапливать и сохранять; есть сбережения, достаток со временем приходит.',c=>['Jupiter','Venus','Mercury'].some(p=>houseOf(c,p)===2||houseOf(c,p)===11)?1:0],
 ];
+// ОСОБЫЕ ОБСТОЯТЕЛЬСТВА — галочки «да, это было/есть» (важные факты для ректификации)
+const NAADI_FACTS=[
+  ['Живу за рубежом — не в той стране, где родился(ась).',c=>['Rahu','Ketu','Saturn'].some(p=>[4,12].includes(houseOf(c,p)))?1:0],
+  ['Были аборты, выкидыши или потеря ребёнка.',c=>['Mars','Saturn','Rahu','Ketu'].some(p=>houseOf(c,p)===5)?1:0],
+  ['Есть трудности с зачатием, либо детей нет / мало.',c=>['Saturn','Ketu'].some(p=>houseOf(c,p)===5)?1:0],
+  ['Был крупный пожар (дом, имущество).',c=>['Mars','Ketu','Sun'].some(p=>[4,8].includes(houseOf(c,p)))?1:0],
+  ['Были серьёзные аварии с угрозой для жизни.',c=>['Mars','Rahu','Saturn'].some(p=>houseOf(c,p)===8)?1:0],
+  ['Была клиническая смерть или состояние на грани жизни.',c=>(['Saturn','Rahu','Ketu','Mars'].some(p=>houseOf(c,p)===8)||houseOf(c,'Ketu')===1)?1:0],
+  ['По словам матери, роды были тяжёлыми, ранними или, наоборот, поздними.',c=>['Saturn','Mars'].some(p=>houseOf(c,p)===1)?1:0],
+  ['Были попытки суицида.',c=>['Saturn','Rahu','Ketu','Mars'].some(p=>[8,12].includes(houseOf(c,p)))?1:0],
+  ['Были зависимости (алкоголь, вещества и т.п.) — у меня или в семье.',c=>['Rahu','Ketu','Saturn'].some(p=>[6,12].includes(houseOf(c,p)))?1:0],
+  ['Среди близких родственников есть инвалиды или тяжелобольные.',c=>['Saturn','Mars','Rahu','Ketu'].some(p=>houseOf(c,p)===6)?1:0],
+  ['Были судебные разбирательства, тяжбы или конфликты с законом.',c=>['Saturn','Mars','Rahu'].some(p=>houseOf(c,p)===6)?1:0],
+  ['Я — духовный человек: тянусь к вере, практикам, поиску смысла.',c=>['Jupiter','Ketu'].some(p=>[1,5,9,12].includes(houseOf(c,p)))?1:0],
+  ['Были духовные посвящения (инициации, дикша, обеты).',c=>(houseOf(c,'Ketu')===1||[9,12].includes(houseOf(c,'Ketu'))||houseOf(c,'Jupiter')===12)?1:0],
+  ['Жизнь с резкими взлётами и падениями, крутыми поворотами судьбы.',c=>['Rahu','Ketu'].some(p=>[1,4,7,10].includes(houseOf(c,p)))?1:0],
+  ['Много переездов и путешествий, часто меняю место жизни.',c=>['Rahu','Moon'].some(p=>[3,12].includes(houseOf(c,p)))?1:0],
+  ['Есть творческий или артистический дар (музыка, искусство, сцена).',c=>['Venus','Mercury'].some(p=>[3,5].includes(houseOf(c,p)))?1:0],
+  ['Занимаю руководящую должность или веду свой бизнес.',c=>['Sun','Mars','Saturn'].some(p=>houseOf(c,p)===10)?1:0],
+  ['Есть хронические болезни или были серьёзные операции.',c=>['Saturn','Mars','Ketu'].some(p=>houseOf(c,p)===6)?1:0],
+];
 // единый список с id
+let SEX='f'; // 'f' | 'm' — влияет на слово «супруг(а)»
+function spouseSubject(){ return SEX==='m'?'Первая супруга':'Первый супруг'; }
 const NAADI=[];
-function pushG(arr,pre,grp){ arr.forEach((s,i)=>NAADI.push({id:pre+i, group:grp, text:s[0], cond:s[1]})); }
+function pushG(arr,pre,grp,kind){ arr.forEach((s,i)=>NAADI.push({id:pre+i, group:grp, text:s[0], cond:s[1], kind:kind||'scale'})); }
 pushG(NAADI_BODY,'B','body');
 pushG(NAADI_SPOUSE,'S','spouse');
 pushG(NAADI_CHILD,'C','child');
 pushG(NAADI_PARENTS,'P','parents');
 pushG(NAADI_ASSETS,'A','assets');
+pushG(NAADI_FACTS,'F','facts','check');
 const RATING_VAL={1:-1, 2:-0.5, 3:0, 4:0.5, 5:1};
 
 // оценка одного события для кандидата
@@ -783,6 +827,14 @@ document.getElementById('winPresets').addEventListener('click',e=>{
   document.querySelectorAll('#winPresets button').forEach(x=>x.classList.toggle('on',x===b));
 });
 
+// пол → влияет на слово «супруг(а)» в наади
+document.getElementById('sexToggle').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  SEX=b.dataset.sex;
+  document.querySelectorAll('#sexToggle button').forEach(x=>x.classList.toggle('on',x===b));
+  buildNaadi(); // перерисовать (обновит слово «супруг(а)»)
+});
+
 // записанное время ± допуск → окно поиска (центр вокруг записанного времени)
 function applyRecRange(){
   const rt=document.getElementById('recTime').value;
@@ -828,17 +880,21 @@ function collectEvents(){
 function buildNaadi(){
   const wrap=document.getElementById('naadiList');
   function stHtml(st){
-    let btns='';
-    for(let v=1;v<=5;v++) btns+='<button type="button" data-v="'+v+'">'+v+'</button>';
-    return '<div class="naadi-st"><div class="naadi-text">'+esc(st.text)+'</div>'+
+    const text = st.group==='spouse' ? (spouseSubject()+' — '+st.text) : st.text;
+    if(st.kind==='check'){
+      return '<label class="fact"><input type="checkbox" class="fact-cb" data-id="'+st.id+'"><span>'+esc(text)+'</span></label>';
+    }
+    let btns=''; for(let v=1;v<=5;v++) btns+='<button type="button" data-v="'+v+'">'+v+'</button>';
+    return '<div class="naadi-st"><div class="naadi-text">'+esc(text)+'</div>'+
            '<div class="scale" data-id="'+st.id+'">'+btns+'</div></div>';
   }
   const GROUPS=[
     ['body','Тело и облик'],
-    ['spouse','Первый муж / партнёр (только первый союз)'],
-    ['child','Первый ребёнок — характер'],
+    ['spouse','Первый супруг(а) — только первый союз'],
+    ['child','Первый ребёнок'],
     ['parents','Родители'],
     ['assets','Имущество и дом'],
+    ['facts','Особые обстоятельства — отметьте, что было/есть'],
   ];
   let html='';
   for(const [key,title] of GROUPS){
@@ -862,6 +918,9 @@ function collectNaadi(){
   document.querySelectorAll('#naadiList .scale').forEach(sc=>{
     const v=sc.getAttribute('data-val');
     if(v){ vals[sc.dataset.id]=RATING_VAL[+v]; answered=true; }
+  });
+  document.querySelectorAll('#naadiList .fact-cb').forEach(cb=>{
+    if(cb.checked){ vals[cb.dataset.id]=1; answered=true; }
   });
   return {vals, answered};
 }
@@ -1082,7 +1141,7 @@ async function runRectification(){
         let mark='<span class="mark mid">•</span>', tail=' <span class="why">(вы это не оценивали)</span>';
         if(uv>0){ mark='<span class="mark yes">✓</span>'; tail=' <span class="why">(отметили: похоже на вас — в пользу этого знака)</span>'; }
         else if(uv<0){ mark='<span class="mark no">✗</span>'; tail=' <span class="why">(отметили: не про вас — против этого знака)</span>'; }
-        html+='<div class="naadi-claim">'+mark+esc(st.text)+tail+'</div>';
+        html+='<div class="naadi-claim">'+mark+esc(st.group==='spouse'?spouseSubject()+' — '+st.text:st.text)+tail+'</div>';
       }
       html+='</div>';
     } else html+='<p class="note">Карта этого знака не утверждает отмеченных портретных признаков.</p>';
