@@ -523,6 +523,8 @@ function kpLords(lon){
   const subsub=vimSplit(sub.lord, sub.span, pInNak-sub.start);
   return {sign:signIdx(lon), nakIdx, starLord, subLord:sub.lord, subSubLord:subsub.lord};
 }
+// знак в дробной карте D-n (общая циклическая формула Парашары): D9 меняется ~13 мин, D60 ~2 мин
+function vargaSign(lon,n){ lon=nd(lon); const s=Math.floor(lon/30), d=lon%30; return (n*s + Math.floor(n*d/30))%12; }
 
 /* ════════════════════════════════════════════════════════════════════
    ТИПЫ СОБЫТИЙ → натуральные караки + дом (значимый бхава от Лагны)
@@ -542,6 +544,14 @@ const EVENT_TYPES=[
   {id:'illness',    label:'Тяжёлая болезнь / операция',     house:6,  alt:8,  karakas:['Saturn','Mars']},
   {id:'bereavement',label:'Утрата близкого',                house:8,  alt:4,  karakas:['Saturn','Rahu','Ketu']},
   {id:'spiritual',  label:'Духовный поворот / посвящение',  house:9,  alt:12, karakas:['Jupiter','Ketu','Saturn']},
+  {id:'accident',   label:'Серьёзная авария / травма',      house:8,  alt:6,  karakas:['Mars','Rahu','Saturn']},
+  {id:'surgery',    label:'Операция',                       house:8,  alt:6,  karakas:['Mars','Saturn']},
+  {id:'near_death', label:'Клиническая смерть / на грани',  house:8,  alt:12, karakas:['Saturn','Ketu','Mars']},
+  {id:'fire',       label:'Крупный пожар',                  house:8,  alt:4,  karakas:['Mars','Ketu','Sun']},
+  {id:'child_loss', label:'Потеря ребёнка / выкидыш / аборт',house:5, alt:8,  karakas:['Saturn','Rahu','Ketu','Mars']},
+  {id:'lawsuit',    label:'Суд / тяжба',                    house:6,  alt:8,  karakas:['Saturn','Mars','Rahu']},
+  {id:'initiation', label:'Духовное посвящение (дикша, обеты)',house:12,alt:9, karakas:['Ketu','Jupiter','Saturn']},
+  {id:'crisis',     label:'Тяжёлый кризис / попытка суицида',house:8,  alt:12, karakas:['Saturn','Rahu','Ketu']},
 ];
 const EV_BY_ID=Object.fromEntries(EVENT_TYPES.map(e=>[e.id,e]));
 
@@ -1145,6 +1155,25 @@ async function runRectification(){
       }
       html+='</div>';
     } else html+='<p class="note">Карта этого знака не утверждает отмеченных портретных признаков.</p>';
+  }
+
+  // ── дробные карты (D9/D60) — тонкая проверка для эксперта ──
+  if(anchorBand){
+    const vt=Math.round(corridor? (corridor.fromT+corridor.toT)/2 : top.repT);
+    const vh=Math.floor(vt/60), vmi=vt-vh*60, vtz=offAt(vt);
+    const cv=computeChart(y,mo,d,vh,vmi,vtz,lat,lon);
+    const d1=signIdx(cv.pos.Lagna), d9=vargaSign(cv.pos.Lagna,9), d60=vargaSign(cv.pos.Lagna,60), moonD9=vargaSign(cv.pos.Moon,9);
+    html+='<h3 class="block-title">Дробные карты — тонкая проверка (D9/D60)</h3>';
+    html+='<table class="rtable"><tbody>'+
+      '<tr><td>Лагна D1 (раши)</td><td><b>'+SIGN_RU[d1]+'</b></td></tr>'+
+      '<tr><td>Навамша D9 — Лагна</td><td><b>'+SIGN_RU[d9]+'</b> <span class="why">(меняется ~13 мин; брак, дхарма, сила карты)</span></td></tr>'+
+      '<tr><td>Навамша D9 — Луна</td><td>'+SIGN_RU[moonD9]+'</td></tr>'+
+      '<tr><td>Шаштиамша D60 — Лагна</td><td><b>'+SIGN_RU[d60]+'</b> <span class="why">(меняется ~2 мин; тончайший слой)</span></td></tr>'+
+      '</tbody></table>';
+    html+='<p class="note">Значения даны на середину коридора ('+fmtMin(vt)+'). '+
+      'D9-Лагна и D60-Лагна — самые чувствительные ко времени: именно по их смене астролог '+
+      'ставит минуту (сверяя D9 с браком/детьми и D60 — с судьбой). В пределах коридора '+
+      'они успевают смениться, поэтому одну минуту здесь не фиксируем — это делается на консультации.</p>';
   }
 
   // ── призыв на консультацию (точную минуту ставит астролог) ──
