@@ -146,8 +146,11 @@
   .pc-links{display:flex;flex-direction:column;gap:10px}
   .pc-links a{display:block;text-decoration:none;text-align:center;border-radius:12px;padding:15px 18px;
     font-weight:700;line-height:1.3}
-  .pc-full{background:linear-gradient(135deg,var(--c-red),var(--c-orange));color:#fff}
-  .pc-mk{background:#fff;color:var(--c-red);border:2px solid var(--c-orange)}
+  .pc-full{background:linear-gradient(135deg,var(--c-red),var(--c-orange));color:#fff !important}
+  .pc-full small{color:#fff !important}
+  .pc-mk{background:#fff;color:var(--c-red) !important;border:2px solid var(--c-orange)}
+  .pc-mk small{color:var(--c-red) !important}
+  .pc-links a:hover{opacity:.95}
   .pc-links small{display:block;font-weight:400;font-size:.8rem;opacity:.9;margin-top:2px}
   /* полноверсионные блоки в превью скрыты через отсутствие FULL — управляется в JS */
 </style>
@@ -1173,7 +1176,7 @@ async function runRectification(){
       '<div class="best-time">'+SIGN_RU[anchorBand.sign]+'</div>'+
       '<div class="best-sub">восходит '+rng(anchorBand)+recNote+'</div></div>';
     html+='<p class="note" style="margin-top:12px">Знак закреплён по <b>'+anchorBy+'</b> (события знак не выбирают — это ненадёжно). '+
-      (FULL ? 'Внутри знака (≈2 ч) время уточняется событиями — ниже коридор и доказательства; <b>точную минуту ставит астролог на консультации</b>.'
+      (FULL ? 'Внутри знака (≈2 ч) время уточняется событиями — ниже коридор и доказательства; <b>на консультации астролог проверит расчёт и может уточнить время вплоть до секунд</b>.'
             : 'Это пробная версия — она определяет восходящий знак. Сужение до коридора, KP-сетка и дробные карты — в полной версии (ссылки ниже).')+'</p>';
   } else {
     html+='<div class="best-card"><div class="best-label">В окне восходят несколько знаков</div>'+
@@ -1271,7 +1274,7 @@ async function runRectification(){
       ? 'По вашим данным полная версия сузит время до <b>коридора ~30–60 минут</b>, покажет KP-сетку суб-владык и дробные карты D9/D60.'
       : 'Это пробная версия — она определяет <b>восходящий знак</b>. Полная версия сужает время до коридора по вашим событиям и даёт KP-сетку и дробные карты.';
     html+='<div class="preview-cta"><div class="pc-lead">Хотите узнать точное время рождения?</div>'+
-      '<p>'+teaser+' Точную минуту астролог ставит на консультации.</p>'+
+      '<p>'+teaser+' На консультации астролог проверит расчёт программы и при необходимости уточнит время вплоть до секунд, повысив точность гороскопа.</p>'+
       '<div class="pc-links">'+
         '<a class="pc-full" href="'+FULL_URL+'" target="_blank" rel="noopener">Получить полный расчёт<small>код доступа к полной версии на 24 часа придёт на почту</small></a>'+
         '<a class="pc-mk" href="'+MK_URL+'" target="_blank" rel="noopener">Мастер-класс «Секреты ректификации»<small>обучение методу + доступ к программе на 3 месяца</small></a>'+
@@ -1281,9 +1284,9 @@ async function runRectification(){
 
   // ── призыв на консультацию (точную минуту ставит астролог) — только полная версия ──
   if(FULL){
-    html+='<div class="consult-cta"><div class="cta-title">Нужна точная минута рождения?</div>'+
-      '<p>Программа надёжно сужает время до коридора. <b>Точную минуту</b> — по KP-суб-владыкам, '+
-      'дробным картам и сверке событий — астролог ставит на консультации, это уже работа эксперта, а не автоматический расчёт.</p>'+
+    html+='<div class="consult-cta"><div class="cta-title">Нужна максимальная точность?</div>'+
+      '<p>Программа надёжно сужает время до коридора. На консультации астролог <b>проверит расчёт программы</b>, '+
+      'при необходимости <b>уточнит время вплоть до секунд</b> (KP-суб-владыки, дробные карты, сверка событий) и повысит точность вашего гороскопа.</p>'+
       '<a class="astro-btn" href="'+CONSULT_URL+'" target="_blank" rel="noopener">Записаться на консультацию</a></div>';
   }
 
