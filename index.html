@@ -1003,10 +1003,10 @@ const FULL_URL='https://goroskop1008.ru/uslugi#!/tproduct/842449103-160798117502
 const MK_URL='https://goroskop1008.ru/shop/tproduct/769774853-941526603903-sekreti-rektifikatsii'; // мастер-класс → доступ к программе на 3 месяца
 
 /* ── ДОСТУП (Вариант A): статичные коды, SHA-256. Тильда/Unisender шлёт код авто-письмом.
-   Коды по умолчанию: 24 ч = «svet-rect-24», на 3 месяца (мастер-класс) = «svet-astro-pro».
+   Коды: 24 ч (полный расчёт) = «1653», на 3 месяца (мастер-класс) = «svet-astro-pro».
    Чтобы сменить код — скажи новый, пересчитаю хэш. ── */
-const CODE_24H='b8b4af1ec8de8f1a4217c48d811ab9615330e67b0d8f8511611d72ce9d5de875';
-const CODE_MK='00dff586565cd8e2dbada96c74d36f52de602338f22e199855342a3371f76ced';
+const CODE_24H='ef0d2e96b08cee59a3557ca2ddba84bd84b4dabd4e2f882122a291bffee0acdd'; // 1653
+const CODE_MK='00dff586565cd8e2dbada96c74d36f52de602338f22e199855342a3371f76ced';  // svet-astro-pro
 const MS_DAY=864e5;
 async function sha256hex(s){ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));
   return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
