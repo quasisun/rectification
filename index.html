@@ -152,6 +152,10 @@
   .pc-mk small{color:var(--c-red) !important}
   .pc-links a:hover{opacity:.95}
   .pc-links small{display:block;font-weight:400;font-size:.8rem;opacity:.9;margin-top:2px}
+  .pc-includes{margin:2px 0 14px;padding:14px 16px;background:#fff;border:1px solid var(--c-line);border-radius:12px}
+  .pc-includes .pc-h{font-weight:700;color:var(--c-ink);margin-bottom:8px}
+  .pc-includes ul{margin:0;padding-left:20px}
+  .pc-includes li{font-size:.9rem;line-height:1.5;color:var(--c-ink);margin:4px 0}
   /* полноверсионные блоки в превью скрыты через отсутствие FULL — управляется в JS */
 </style>
 </head>
@@ -1000,7 +1004,7 @@ function fmtMinHtml(t){ const h=Math.floor(t/60), m=t%60; return String(h).padSt
 function fmtDate(dv){ const [y,m,d]=dv.split('-'); return +d+' '+MONTHS[+m-1]+' '+y; }
 
 // ССЫЛКА НА КОНСУЛЬТАЦИЮ (заменить на прямую ссылку записи/товара корзины)
-const CONSULT_URL='https://goroskop1008.ru/uslugi/#consult#!/tproduct/842449103-1607981175028';
+const CONSULT_URL='https://goroskop1008.ru/uslugi#!/tproduct/842449103-1607981175028';
 // ССЫЛКИ ДЛЯ ПРЕВЬЮ (товары Тильды):
 const FULL_URL='https://goroskop1008.ru/uslugi#!/tproduct/842449103-1607981175028';           // полный расчёт → письмо Unisender с кодом на 24 ч
 const MK_URL='https://goroskop1008.ru/shop/tproduct/769774853-941526603903-sekreti-rektifikatsii'; // мастер-класс → доступ к программе на 3 месяца
@@ -1275,6 +1279,14 @@ async function runRectification(){
       : 'Это пробная версия — она определяет <b>восходящий знак</b>. Полная версия сужает время до коридора по вашим событиям и даёт KP-сетку и дробные карты.';
     html+='<div class="preview-cta"><div class="pc-lead">Хотите узнать точное время рождения?</div>'+
       '<p>'+teaser+' На консультации астролог проверит расчёт программы и при необходимости уточнит время вплоть до секунд, повысив точность гороскопа.</p>'+
+      '<div class="pc-includes"><div class="pc-h">Полная версия включает:</div><ul>'+
+        '<li>сужение времени до <b>коридора ~30–60 минут</b> по вашим событиям жизни;</li>'+
+        '<li>полную анкету: все вопросы и раздел «особые обстоятельства», до 12 событий;</li>'+
+        '<li><b>KP-сетку суб-владык</b> восходящего градуса — по минутам;</li>'+
+        '<li><b>дробные карты D9 (Навамша) и D60</b> — тонкую проверку;</li>'+
+        '<li>разбор-доказательства: как ваши события совпали с периодами и домами;</li>'+
+        '<li>доступ к полной версии на 24 часа (код придёт на почту после оплаты).</li>'+
+      '</ul></div>'+
       '<div class="pc-links">'+
         '<a class="pc-full" href="'+FULL_URL+'" target="_blank" rel="noopener">Получить полный расчёт<small>код доступа к полной версии на 24 часа придёт на почту</small></a>'+
         '<a class="pc-mk" href="'+MK_URL+'" target="_blank" rel="noopener">Мастер-класс «Секреты ректификации»<small>обучение методу + доступ к программе на 3 месяца</small></a>'+
