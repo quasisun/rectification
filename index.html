@@ -299,7 +299,7 @@
         <summary>Есть код доступа? Открыть полную версию</summary>
         <p class="muted" style="margin:6px 0 10px;font-size:.85rem">
           Код приходит на почту после покупки полного расчёта (доступ на 24 часа) или мастер-класса
-          (постоянный доступ — «режим астролога»).
+          (доступ к программе на 3 месяца).
         </p>
         <div class="access-row">
           <input id="accessCode" type="text" autocomplete="off" spellcheck="false" placeholder="Введите код">
@@ -998,30 +998,31 @@ function fmtDate(dv){ const [y,m,d]=dv.split('-'); return +d+' '+MONTHS[+m-1]+' 
 
 // ССЫЛКА НА КОНСУЛЬТАЦИЮ (заменить на прямую ссылку записи/товара корзины)
 const CONSULT_URL='https://goroskop1008.ru/uslugi/#consult#!/tproduct/842449103-1607981175028';
-// ССЫЛКИ ДЛЯ ПРЕВЬЮ (ЗАМЕНИТЬ на свои товары Тильды):
-const FULL_URL='https://goroskop1008.ru/uslugi/';  // товар «ректификация полная» → код на 24 ч
-const MK_URL='https://goroskop1008.ru/uslugi/';     // товар «мастер-класс» → постоянный доступ
+// ССЫЛКИ ДЛЯ ПРЕВЬЮ (товары Тильды):
+const FULL_URL='https://goroskop1008.ru/uslugi#!/tproduct/842449103-1607981175028';           // полный расчёт → письмо Unisender с кодом на 24 ч
+const MK_URL='https://goroskop1008.ru/shop/tproduct/769774853-941526603903-sekreti-rektifikatsii'; // мастер-класс → доступ к программе на 3 месяца
 
-/* ── ДОСТУП (Вариант A): статичные коды, SHA-256. Тильда шлёт код авто-письмом.
-   Коды по умолчанию: 24 ч = «svet-rect-24», постоянный = «svet-astro-pro».
+/* ── ДОСТУП (Вариант A): статичные коды, SHA-256. Тильда/Unisender шлёт код авто-письмом.
+   Коды по умолчанию: 24 ч = «svet-rect-24», на 3 месяца (мастер-класс) = «svet-astro-pro».
    Чтобы сменить код — скажи новый, пересчитаю хэш. ── */
 const CODE_24H='b8b4af1ec8de8f1a4217c48d811ab9615330e67b0d8f8511611d72ce9d5de875';
-const CODE_PERM='00dff586565cd8e2dbada96c74d36f52de602338f22e199855342a3371f76ced';
+const CODE_MK='00dff586565cd8e2dbada96c74d36f52de602338f22e199855342a3371f76ced';
+const MS_DAY=864e5;
 async function sha256hex(s){ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));
   return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
 function checkUnlock(){
-  if(localStorage.getItem('rectify_perm')==='1'){ FULL=true; return; }
-  const exp=+localStorage.getItem('rectify_24h_exp')||0; FULL = exp>Date.now();
+  const mk=+localStorage.getItem('rectify_mk_exp')||0, d24=+localStorage.getItem('rectify_24h_exp')||0;
+  FULL = mk>Date.now() || d24>Date.now();
 }
 function applyMode(){
   document.body.classList.toggle('full-mode', FULL);
-  const evAdd=document.getElementById('evAdd');
   buildNaadi();
   const st=document.getElementById('accessState');
   if(st){
-    if(localStorage.getItem('rectify_perm')==='1') st.textContent='Открыт постоянный доступ (режим астролога).';
-    else { const exp=+localStorage.getItem('rectify_24h_exp')||0;
-      st.textContent = exp>Date.now() ? 'Полная версия открыта (осталось '+Math.ceil((exp-Date.now())/3600000)+' ч).' : ''; }
+    const mk=+localStorage.getItem('rectify_mk_exp')||0, d24=+localStorage.getItem('rectify_24h_exp')||0;
+    if(mk>Date.now()) st.textContent='Доступ к программе открыт — осталось '+Math.ceil((mk-Date.now())/MS_DAY)+' дн.';
+    else if(d24>Date.now()) st.textContent='Полная версия открыта — осталось '+Math.ceil((d24-Date.now())/3600000)+' ч.';
+    else st.textContent='';
   }
   updateEvAdd();
 }
@@ -1029,8 +1030,8 @@ async function submitCode(){
   const inp=document.getElementById('accessCode'), msg=document.getElementById('accessMsg');
   const v=(inp.value||'').trim().toLowerCase(); if(!v){ return; }
   const h=await sha256hex(v);
-  if(h===CODE_PERM){ localStorage.setItem('rectify_perm','1'); FULL=true; applyMode(); msg.style.color='#1a8a3c'; msg.textContent='Готово: открыт постоянный доступ (режим астролога).'; }
-  else if(h===CODE_24H){ localStorage.setItem('rectify_24h_exp',String(Date.now()+864e5)); FULL=true; applyMode(); msg.style.color='#1a8a3c'; msg.textContent='Готово: полная версия открыта на 24 часа.'; }
+  if(h===CODE_MK){ localStorage.setItem('rectify_mk_exp',String(Date.now()+90*MS_DAY)); FULL=true; applyMode(); msg.style.color='#1a8a3c'; msg.textContent='Готово: доступ к программе открыт на 3 месяца.'; }
+  else if(h===CODE_24H){ localStorage.setItem('rectify_24h_exp',String(Date.now()+MS_DAY)); FULL=true; applyMode(); msg.style.color='#1a8a3c'; msg.textContent='Готово: полная версия открыта на 24 часа.'; }
   else { msg.style.color=''; msg.textContent='Код неверный. Проверьте письмо после оплаты.'; }
 }
 
@@ -1273,7 +1274,7 @@ async function runRectification(){
       '<p>'+teaser+' Точную минуту астролог ставит на консультации.</p>'+
       '<div class="pc-links">'+
         '<a class="pc-full" href="'+FULL_URL+'" target="_blank" rel="noopener">Получить полный расчёт<small>код доступа к полной версии на 24 часа придёт на почту</small></a>'+
-        '<a class="pc-mk" href="'+MK_URL+'" target="_blank" rel="noopener">Мастер-класс: точная ректификация<small>обучение + постоянный доступ к программе (режим астролога)</small></a>'+
+        '<a class="pc-mk" href="'+MK_URL+'" target="_blank" rel="noopener">Мастер-класс «Секреты ректификации»<small>обучение методу + доступ к программе на 3 месяца</small></a>'+
       '</div>'+
       '<p class="note" style="margin-top:10px">Уже купили? Введите код в разделе «Есть код доступа?» над результатом.</p></div>';
   }
