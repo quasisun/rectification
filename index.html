@@ -306,7 +306,7 @@
       <details class="access">
         <summary>Есть код доступа? Открыть полную версию</summary>
         <p class="muted" style="margin:6px 0 10px;font-size:.85rem">
-          Код приходит на почту после покупки полного расчёта (доступ на 24 часа) или мастер-класса
+          Код приходит на почту после покупки полного расчёта (доступ на 1 месяц) или мастер-класса
           (доступ к программе на 3 месяца).
         </p>
         <div class="access-row">
@@ -1029,7 +1029,7 @@ function applyMode(){
   if(st){
     const mk=+localStorage.getItem('rectify_mk_exp')||0, d24=+localStorage.getItem('rectify_24h_exp')||0;
     if(mk>Date.now()) st.textContent='Доступ к программе открыт — осталось '+Math.ceil((mk-Date.now())/MS_DAY)+' дн.';
-    else if(d24>Date.now()) st.textContent='Полная версия открыта — осталось '+Math.ceil((d24-Date.now())/3600000)+' ч.';
+    else if(d24>Date.now()) st.textContent='Полная версия открыта — осталось '+Math.ceil((d24-Date.now())/MS_DAY)+' дн.';
     else st.textContent='';
   }
   updateEvAdd();
@@ -1039,7 +1039,7 @@ async function submitCode(){
   const v=(inp.value||'').trim().toLowerCase(); if(!v){ return; }
   const h=await sha256hex(v);
   if(h===CODE_MK){ localStorage.setItem('rectify_mk_exp',String(Date.now()+90*MS_DAY)); FULL=true; applyMode(); msg.style.color='#1a8a3c'; msg.textContent='Готово: доступ к программе открыт на 3 месяца.'; }
-  else if(h===CODE_24H){ localStorage.setItem('rectify_24h_exp',String(Date.now()+MS_DAY)); FULL=true; applyMode(); msg.style.color='#1a8a3c'; msg.textContent='Готово: полная версия открыта на 24 часа.'; }
+  else if(h===CODE_24H){ localStorage.setItem('rectify_24h_exp',String(Date.now()+30*MS_DAY)); FULL=true; applyMode(); msg.style.color='#1a8a3c'; msg.textContent='Готово: полная версия открыта на 1 месяц.'; }
   else { msg.style.color=''; msg.textContent='Код неверный. Проверьте письмо после оплаты.'; }
 }
 
@@ -1286,10 +1286,10 @@ async function runRectification(){
         '<li><b>KP-сетку суб-владык</b> восходящего градуса — по минутам;</li>'+
         '<li><b>дробные карты D9 (Навамша) и D60</b> — тонкую проверку;</li>'+
         '<li>разбор-доказательства: как ваши события совпали с периодами и домами;</li>'+
-        '<li>доступ на 24 часа — можно сделать <b>сколько угодно расчётов</b>, в том числе для близких и друзей (код придёт на почту после оплаты).</li>'+
+        '<li>доступ на <b>1 месяц</b> — можно сделать <b>сколько угодно расчётов</b>, в том числе для близких и друзей (код придёт на почту после оплаты).</li>'+
       '</ul></div>'+
       '<div class="pc-links">'+
-        '<a class="pc-full" href="'+FULL_URL+'" target="_blank" rel="noopener">Получить полный расчёт<small>код доступа к полной версии на 24 часа придёт на почту</small></a>'+
+        '<a class="pc-full" href="'+FULL_URL+'" target="_blank" rel="noopener">Получить полный расчёт<small>код доступа к полной версии на 1 месяц придёт на почту</small></a>'+
         '<a class="pc-mk" href="'+MK_URL+'" target="_blank" rel="noopener">Мастер-класс «Секреты ректификации»<small>обучение методу + доступ к программе на 3 месяца</small></a>'+
       '</div>'+
       '<p class="note" style="margin-top:10px">Уже купили? Введите код в разделе «Есть код доступа?» над результатом.</p></div>';
