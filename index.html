@@ -128,6 +128,28 @@
   .consult-cta .astro-btn{display:inline-block;text-decoration:none;color:#fff !important;
     background:linear-gradient(135deg,var(--c-red),var(--c-orange))}
   .consult-cta .astro-btn:hover{color:#fff !important}
+
+  details.access{margin:14px 0 4px;border:1px solid var(--c-line);border-radius:10px;padding:0 14px}
+  details.access[open]{padding-bottom:12px}
+  details.access>summary{cursor:pointer;padding:12px 0;color:var(--c-red);font-weight:600}
+  .access-row{display:flex;gap:8px}
+  .access-row input{flex:1 1 auto}
+  .access-row .astro-btn{flex:0 0 auto;min-height:44px;padding:10px 20px}
+  .access-msg{margin:8px 0 0;font-size:.9rem;font-weight:600}
+  .access-state{margin:4px 0 0;font-size:.85rem;color:#1a8a3c}
+
+  /* превью → 2 ссылки монетизации */
+  .preview-cta{margin:18px 0 4px}
+  .preview-cta .pc-lead{font-family:var(--font-display);font-weight:400;color:var(--c-red);
+    font-size:clamp(1.4rem,5vw,1.9rem);line-height:1.15;margin-bottom:6px}
+  .preview-cta p{font-size:.9rem;color:var(--c-ink);line-height:1.5;margin:0 0 12px}
+  .pc-links{display:flex;flex-direction:column;gap:10px}
+  .pc-links a{display:block;text-decoration:none;text-align:center;border-radius:12px;padding:15px 18px;
+    font-weight:700;line-height:1.3}
+  .pc-full{background:linear-gradient(135deg,var(--c-red),var(--c-orange));color:#fff}
+  .pc-mk{background:#fff;color:var(--c-red);border:2px solid var(--c-orange)}
+  .pc-links small{display:block;font-weight:400;font-size:.8rem;opacity:.9;margin-top:2px}
+  /* полноверсионные блоки в превью скрыты через отсутствие FULL — управляется в JS */
 </style>
 </head>
 
@@ -272,6 +294,21 @@
         Подобрать время рождения
       </button>
 
+      <!-- Доступ по коду (полная версия / режим астролога) -->
+      <details class="access">
+        <summary>Есть код доступа? Открыть полную версию</summary>
+        <p class="muted" style="margin:6px 0 10px;font-size:.85rem">
+          Код приходит на почту после покупки полного расчёта (доступ на 24 часа) или мастер-класса
+          (постоянный доступ — «режим астролога»).
+        </p>
+        <div class="access-row">
+          <input id="accessCode" type="text" autocomplete="off" spellcheck="false" placeholder="Введите код">
+          <button type="button" class="astro-btn" id="accessBtn">Открыть</button>
+        </div>
+        <p id="accessMsg" class="access-msg"></p>
+        <p id="accessState" class="access-state"></p>
+      </details>
+
       <div id="result"></div>
     </div>
   </section>
@@ -317,6 +354,9 @@
    Асцендента, минус аянамша Лахири → сидерические. Запасной аналитический
    расчёт (Meeus) если WASM не загрузился (file://).
    ════════════════════════════════════════════════════════════════════ */
+// режим доступа (объявлено рано — используется в buildNaadi/addEventRow при инициализации)
+let FULL=false;
+const PREVIEW_EVENTS=5, PREVIEW_NAADI=15, FULL_EVENTS=12;
 const D2R=Math.PI/180, R2D=180/Math.PI;
 function nd(d){return((d%360)+360)%360;}
 function nr(a){a%=2*Math.PI;if(a<0)a+=2*Math.PI;return a;}
@@ -864,12 +904,20 @@ function eventRowHtml(){
     '<div class="astro-field ev-date"><label>Дата</label><input type="date" class="ev-date-inp"></div>'+
     '<button type="button" class="ev-del" title="Удалить">×</button></div>';
 }
+function updateEvAdd(){
+  const cap=FULL?FULL_EVENTS:PREVIEW_EVENTS;
+  const n=document.querySelectorAll('#eventsList .ev-row').length;
+  const btn=document.getElementById('evAdd');
+  if(btn){ btn.style.display = n>=cap ? 'none':''; btn.textContent='+ Добавить событие'+(FULL?'':' (в превью до '+PREVIEW_EVENTS+')'); }
+}
 function addEventRow(){
+  const cap=FULL?FULL_EVENTS:PREVIEW_EVENTS;
   const wrap=document.getElementById('eventsList');
+  if(document.querySelectorAll('#eventsList .ev-row').length>=cap) return;
   const div=document.createElement('div'); div.innerHTML=eventRowHtml();
   const row=div.firstChild;
-  row.querySelector('.ev-del').addEventListener('click',()=>row.remove());
-  wrap.appendChild(row);
+  row.querySelector('.ev-del').addEventListener('click',()=>{ row.remove(); updateEvAdd(); });
+  wrap.appendChild(row); updateEvAdd();
 }
 document.getElementById('evAdd').addEventListener('click',addEventRow);
 addEventRow(); // одна строка по умолчанию
@@ -906,11 +954,16 @@ function buildNaadi(){
     ['assets','Имущество и дом'],
     ['facts','Особые обстоятельства — отметьте, что было/есть'],
   ];
-  let html='';
+  let html=''; let shown=0; const limit = FULL? Infinity : PREVIEW_NAADI;
   for(const [key,title] of GROUPS){
+    const items=NAADI.filter(s=>s.group===key);
+    const take=[]; for(const it of items){ if(shown>=limit) break; take.push(it); shown++; }
+    if(!take.length) continue;
     html+='<div class="naadi-sub">'+title+'</div>';
-    html+=NAADI.filter(s=>s.group===key).map(stHtml).join('');
+    html+=take.map(stHtml).join('');
   }
+  if(!FULL) html+='<p class="note" style="margin-top:10px">В полной версии — все '+NAADI.length+
+    ' вопросов (сейчас показано '+PREVIEW_NAADI+'), включая раздел «особые обстоятельства».</p>';
   wrap.innerHTML=html;
   wrap.querySelectorAll('.scale').forEach(sc=>{
     sc.addEventListener('click',e=>{
@@ -945,6 +998,41 @@ function fmtDate(dv){ const [y,m,d]=dv.split('-'); return +d+' '+MONTHS[+m-1]+' 
 
 // ССЫЛКА НА КОНСУЛЬТАЦИЮ (заменить на прямую ссылку записи/товара корзины)
 const CONSULT_URL='https://goroskop1008.ru/uslugi/#consult#!/tproduct/842449103-1607981175028';
+// ССЫЛКИ ДЛЯ ПРЕВЬЮ (ЗАМЕНИТЬ на свои товары Тильды):
+const FULL_URL='https://goroskop1008.ru/uslugi/';  // товар «ректификация полная» → код на 24 ч
+const MK_URL='https://goroskop1008.ru/uslugi/';     // товар «мастер-класс» → постоянный доступ
+
+/* ── ДОСТУП (Вариант A): статичные коды, SHA-256. Тильда шлёт код авто-письмом.
+   Коды по умолчанию: 24 ч = «svet-rect-24», постоянный = «svet-astro-pro».
+   Чтобы сменить код — скажи новый, пересчитаю хэш. ── */
+const CODE_24H='b8b4af1ec8de8f1a4217c48d811ab9615330e67b0d8f8511611d72ce9d5de875';
+const CODE_PERM='00dff586565cd8e2dbada96c74d36f52de602338f22e199855342a3371f76ced';
+async function sha256hex(s){ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));
+  return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+function checkUnlock(){
+  if(localStorage.getItem('rectify_perm')==='1'){ FULL=true; return; }
+  const exp=+localStorage.getItem('rectify_24h_exp')||0; FULL = exp>Date.now();
+}
+function applyMode(){
+  document.body.classList.toggle('full-mode', FULL);
+  const evAdd=document.getElementById('evAdd');
+  buildNaadi();
+  const st=document.getElementById('accessState');
+  if(st){
+    if(localStorage.getItem('rectify_perm')==='1') st.textContent='Открыт постоянный доступ (режим астролога).';
+    else { const exp=+localStorage.getItem('rectify_24h_exp')||0;
+      st.textContent = exp>Date.now() ? 'Полная версия открыта (осталось '+Math.ceil((exp-Date.now())/3600000)+' ч).' : ''; }
+  }
+  updateEvAdd();
+}
+async function submitCode(){
+  const inp=document.getElementById('accessCode'), msg=document.getElementById('accessMsg');
+  const v=(inp.value||'').trim().toLowerCase(); if(!v){ return; }
+  const h=await sha256hex(v);
+  if(h===CODE_PERM){ localStorage.setItem('rectify_perm','1'); FULL=true; applyMode(); msg.style.color='#1a8a3c'; msg.textContent='Готово: открыт постоянный доступ (режим астролога).'; }
+  else if(h===CODE_24H){ localStorage.setItem('rectify_24h_exp',String(Date.now()+864e5)); FULL=true; applyMode(); msg.style.color='#1a8a3c'; msg.textContent='Готово: полная версия открыта на 24 часа.'; }
+  else { msg.style.color=''; msg.textContent='Код неверный. Проверьте письмо после оплаты.'; }
+}
 
 document.getElementById('calcBtn').addEventListener('click',runRectification);
 
@@ -1084,8 +1172,8 @@ async function runRectification(){
       '<div class="best-time">'+SIGN_RU[anchorBand.sign]+'</div>'+
       '<div class="best-sub">восходит '+rng(anchorBand)+recNote+'</div></div>';
     html+='<p class="note" style="margin-top:12px">Знак закреплён по <b>'+anchorBy+'</b> (события знак не выбирают — это ненадёжно). '+
-      'Внутри знака (≈2 ч) время уточняется событиями — ниже коридор и доказательства; '+
-      '<b>точную минуту ставит астролог на консультации</b>.</p>';
+      (FULL ? 'Внутри знака (≈2 ч) время уточняется событиями — ниже коридор и доказательства; <b>точную минуту ставит астролог на консультации</b>.'
+            : 'Это пробная версия — она определяет восходящий знак. Сужение до коридора, KP-сетка и дробные карты — в полной версии (ссылки ниже).')+'</p>';
   } else {
     html+='<div class="best-card"><div class="best-label">В окне восходят несколько знаков</div>'+
       '<div class="best-time" style="font-size:clamp(1.5rem,5.5vw,2.3rem)">'+wb.map(b=>SIGN_RU[b.sign]).join(' · ')+'</div>'+
@@ -1097,7 +1185,7 @@ async function runRectification(){
 
   // ── авто-сужение до коридора по событиям (сдвиг антардаши внутри знака) ──
   let corridor=null;
-  if(anchorBand && haveEvents && (anchorBand.toT-anchorBand.fromT)>16){
+  if(FULL && anchorBand && haveEvents && (anchorBand.toT-anchorBand.fromT)>16){
     const a=Math.max(anchorBand.fromT,fromMin), b=Math.min(anchorBand.toT,toM);
     // считаем для каждой минуты, у скольких событий АНТАРДАША = сигнификатор (устойчивый различитель)
     const scoreAntar=t=>{ const h=Math.floor(t/60),mi=t-h*60,tz=offAt(t);
@@ -1121,7 +1209,7 @@ async function runRectification(){
   }
 
   // разбор по событиям — на центре коридора (или середине полосы), согласованно с коридором
-  if(anchorBand && haveEvents){
+  if(FULL && anchorBand && haveEvents){
     const evalT=Math.round(corridor? (corridor.fromT+corridor.toT)/2 : top.repT);
     const eh=Math.floor(evalT/60), emi=evalT-eh*60, etz=offAt(evalT);
     const echart=computeChart(y,mo,d,eh,emi,etz,lat,lon), etl=buildTimeline(echart);
@@ -1141,7 +1229,7 @@ async function runRectification(){
   }
 
   // разбор по наади для лучшей полосы
-  if(anchorBand && haveNaadi){
+  if(FULL && anchorBand && haveNaadi){
     html+='<h3 class="block-title">Что карта знака '+SIGN_RU[top.sign]+' говорит о вас и партнёре</h3>';
     const claims=top.claims;
     if(claims.length){
@@ -1158,7 +1246,7 @@ async function runRectification(){
   }
 
   // ── дробные карты (D9/D60) — тонкая проверка для эксперта ──
-  if(anchorBand){
+  if(FULL && anchorBand){
     const vt=Math.round(corridor? (corridor.fromT+corridor.toT)/2 : top.repT);
     const vh=Math.floor(vt/60), vmi=vt-vh*60, vtz=offAt(vt);
     const cv=computeChart(y,mo,d,vh,vmi,vtz,lat,lon);
@@ -1176,11 +1264,27 @@ async function runRectification(){
       'они успевают смениться, поэтому одну минуту здесь не фиксируем — это делается на консультации.</p>';
   }
 
-  // ── призыв на консультацию (точную минуту ставит астролог) ──
-  html+='<div class="consult-cta"><div class="cta-title">Нужна точная минута рождения?</div>'+
-    '<p>Программа надёжно сужает время до коридора. <b>Точную минуту</b> — по KP-суб-владыкам, '+
-    'дробным картам и сверке событий — астролог ставит на консультации, это уже работа эксперта, а не автоматический расчёт.</p>'+
-    '<a class="astro-btn" href="'+CONSULT_URL+'" target="_blank" rel="noopener">Записаться на консультацию</a></div>';
+  // ── ПРЕВЬЮ: две ссылки монетизации (полный расчёт / мастер-класс) ──
+  if(!FULL){
+    const teaser = (haveEvents||haveNaadi)
+      ? 'По вашим данным полная версия сузит время до <b>коридора ~30–60 минут</b>, покажет KP-сетку суб-владык и дробные карты D9/D60.'
+      : 'Это пробная версия — она определяет <b>восходящий знак</b>. Полная версия сужает время до коридора по вашим событиям и даёт KP-сетку и дробные карты.';
+    html+='<div class="preview-cta"><div class="pc-lead">Хотите узнать точное время рождения?</div>'+
+      '<p>'+teaser+' Точную минуту астролог ставит на консультации.</p>'+
+      '<div class="pc-links">'+
+        '<a class="pc-full" href="'+FULL_URL+'" target="_blank" rel="noopener">Получить полный расчёт<small>код доступа к полной версии на 24 часа придёт на почту</small></a>'+
+        '<a class="pc-mk" href="'+MK_URL+'" target="_blank" rel="noopener">Мастер-класс: точная ректификация<small>обучение + постоянный доступ к программе (режим астролога)</small></a>'+
+      '</div>'+
+      '<p class="note" style="margin-top:10px">Уже купили? Введите код в разделе «Есть код доступа?» над результатом.</p></div>';
+  }
+
+  // ── призыв на консультацию (точную минуту ставит астролог) — только полная версия ──
+  if(FULL){
+    html+='<div class="consult-cta"><div class="cta-title">Нужна точная минута рождения?</div>'+
+      '<p>Программа надёжно сужает время до коридора. <b>Точную минуту</b> — по KP-суб-владыкам, '+
+      'дробным картам и сверке событий — астролог ставит на консультации, это уже работа эксперта, а не автоматический расчёт.</p>'+
+      '<a class="astro-btn" href="'+CONSULT_URL+'" target="_blank" rel="noopener">Записаться на консультацию</a></div>';
+  }
 
   // таймлайн восходящих знаков на ВЕСЬ ДЕНЬ (точные времена), с пометкой окна и записанного времени
   html+='<h3 class="block-title">Таймлайн восходящего знака — весь день</h3>';
@@ -1196,7 +1300,8 @@ async function runRectification(){
   }
   html+='</ul>';
 
-  // ── KP: точная сетка суб-владыки восходящего градуса по минутам ──
+  // ── KP: точная сетка суб-владыки (только полная версия) ──
+  if(FULL){
   // сегменты в пределах окна поиска (где меняется sign/накшатра/суб)
   const a0=fromMin, a1=Math.max(toM, fromMin+1);
   const KPCO=1; // минутный шаг сканирования
@@ -1232,6 +1337,7 @@ async function runRectification(){
   html+='</ul>';
   if(kpSegs.length>MAXROWS) html+='<p class="note">Показаны первые '+MAXROWS+' сегментов из '+kpSegs.length+
     ' — сузьте диапазон ректификации, чтобы увидеть все.</p>';
+  } // /FULL — KP
 
   // провенанс
   const offMid=offAt(midMin);
@@ -1257,8 +1363,13 @@ function toMin(v){ if(!v) return 0; const [h,m]=v.split(':').map(Number); return
   setInterval(post,1000);
 })();
 
+/* ── доступ по коду ── */
+document.getElementById('accessBtn').addEventListener('click',submitCode);
+document.getElementById('accessCode').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); submitCode(); } });
+
 /* ── старт ── */
 document.getElementById('year').textContent=new Date().getFullYear();
+checkUnlock(); applyMode();
 ensureEngine();
 loadCities();
 </script>
