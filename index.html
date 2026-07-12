@@ -1185,10 +1185,13 @@ async function runRectification(){
   if(!anchorBand && haveNaadi){ const r=[...wb].sort((a,b)=>b.naScore-a.naScore); if(r.length && r[0].naScore>0){ anchorBand=r[0]; anchorBy='наади-портрету'; } }
   if(!anchorBand && single){ anchorBand=wb[0]; anchorBy='окну поиска'; }
   const top = anchorBand || wb[0];
+  // «предположительно»: знак выбран самоописанием без известного времени и в окне много знаков
+  const uncertain = !!anchorBand && recMin===null && !single && anchorBy==='наади-портрету';
 
   let html='';
 
-  if(anchorBand){
+  if(anchorBand && !uncertain){
+    // НАДЁЖНЫЙ знак (записанное время или единственная полоса в окне)
     let recNote='';
     if(recMin!==null){
       if(recInBand(anchorBand)) recNote=' · записанное '+fmtMin(recMin)+' попадает в эту полосу';
@@ -1197,9 +1200,21 @@ async function runRectification(){
     html+='<div class="best-card"><div class="best-label">Восходящий знак'+(single?' в этом интервале':' (по '+anchorBy+')')+'</div>'+
       '<div class="best-time">'+SIGN_RU[anchorBand.sign]+'</div>'+
       '<div class="best-sub">восходит '+rng(anchorBand)+recNote+'</div></div>';
-    html+='<p class="note" style="margin-top:12px">Знак закреплён по <b>'+anchorBy+'</b> (события знак не выбирают — это ненадёжно). '+
+    html+='<p class="note" style="margin-top:12px">Знак закреплён по <b>'+anchorBy+'</b>. '+
       (FULL ? 'Внутри знака (≈2 ч) время уточняется событиями — ниже коридор и доказательства; <b>на консультации астролог проверит расчёт и может уточнить время вплоть до секунд</b>.'
             : 'Это пробная версия — она определяет восходящий знак. Сужение до коридора, KP-сетка и дробные карты — в полной версии (ссылки ниже).')+'</p>';
+  } else if(uncertain){
+    // ВРЕМЯ НЕИЗВЕСТНО → показываем список наиболее вероятных знаков, а не один «точный»
+    const ranked=[...wb].sort((a,b)=>b.naScore-a.naScore || b.total-a.total).slice(0,4);
+    html+='<div class="best-card"><div class="best-label">Наиболее вероятный знак (время неизвестно)</div>'+
+      '<div class="best-time">'+SIGN_RU[top.sign]+'</div>'+
+      '<div class="best-sub">восходит '+rng(top)+' · это предположение по самоописанию</div></div>';
+    html+='<p class="note" style="margin-top:12px"><b>Важно:</b> без известного времени точный восходящий знак определить нельзя — самоописание даёт лишь наиболее вероятные варианты, и знак может оказаться другим. Чтобы получить надёжный результат: сузьте <b>промежуток поиска</b> хотя бы до части суток (утро/день/вечер/ночь), впишите <b>записанное время</b>, если оно есть, или выберите знак по внешности и характеру. Наиболее вероятные знаки:</p>';
+    html+='<table class="rtable"><thead><tr><th>Восходит</th><th>Полоса</th><th class="scorecell">Совпадение портрета</th></tr></thead><tbody>';
+    ranked.forEach((b,i)=>{ const pct=Math.round(100*nN(b.naScore));
+      html+='<tr'+(i===0?' class="top"':'')+'><td><b>'+SIGN_RU[b.sign]+'</b></td><td>'+fmtMin(Math.round(b.fromT))+'–'+fmtMin(Math.round(b.toT))+'</td>'+
+        '<td class="scorecell">'+pct+'%<div class="scorebar" style="width:'+Math.max(2,pct)+'%"></div></td></tr>'; });
+    html+='</tbody></table>';
   } else {
     html+='<div class="best-card"><div class="best-label">В окне восходят несколько знаков</div>'+
       '<div class="best-time" style="font-size:clamp(1.5rem,5.5vw,2.3rem)">'+wb.map(b=>SIGN_RU[b.sign]).join(' · ')+'</div>'+
@@ -1211,7 +1226,7 @@ async function runRectification(){
 
   // ── авто-сужение до коридора по событиям (сдвиг антардаши внутри знака) ──
   let corridor=null;
-  if(FULL && anchorBand && haveEvents && (anchorBand.toT-anchorBand.fromT)>16){
+  if(FULL && anchorBand && !uncertain && haveEvents && (anchorBand.toT-anchorBand.fromT)>16){
     const a=Math.max(anchorBand.fromT,fromMin), b=Math.min(anchorBand.toT,toM);
     // считаем для каждой минуты, у скольких событий АНТАРДАША = сигнификатор (устойчивый различитель)
     const scoreAntar=t=>{ const h=Math.floor(t/60),mi=t-h*60,tz=offAt(t);
@@ -1258,7 +1273,7 @@ async function runRectification(){
   }
 
   // разбор по событиям — на центре коридора (или середине полосы), согласованно с коридором
-  if(FULL && anchorBand && haveEvents){
+  if(FULL && anchorBand && !uncertain && haveEvents){
     const evalT=Math.round(corridor? (corridor.fromT+corridor.toT)/2 : top.repT);
     const eh=Math.floor(evalT/60), emi=evalT-eh*60, etz=offAt(evalT);
     const echart=computeChart(y,mo,d,eh,emi,etz,lat,lon), etl=buildTimeline(echart);
@@ -1278,7 +1293,7 @@ async function runRectification(){
   }
 
   // разбор по наади для лучшей полосы
-  if(FULL && anchorBand && haveNaadi){
+  if(FULL && anchorBand && !uncertain && haveNaadi){
     html+='<h3 class="block-title">Что карта знака '+SIGN_RU[top.sign]+' говорит о вас и партнёре</h3>';
     const claims=top.claims;
     if(claims.length){
@@ -1295,7 +1310,7 @@ async function runRectification(){
   }
 
   // ── дробные карты (D9/D60) — тонкая проверка для эксперта ──
-  if(FULL && anchorBand){
+  if(FULL && anchorBand && !uncertain){
     const vt=Math.round(corridor? (corridor.fromT+corridor.toT)/2 : top.repT);
     const vh=Math.floor(vt/60), vmi=vt-vh*60, vtz=offAt(vt);
     const cv=computeChart(y,mo,d,vh,vmi,vtz,lat,lon);
@@ -1357,8 +1372,8 @@ async function runRectification(){
   }
   html+='</ul>';
 
-  // ── KP: точная сетка суб-владыки (только полная версия) ──
-  if(FULL){
+  // ── KP: точная сетка суб-владыки (полная версия, при определённом знаке) ──
+  if(FULL && !uncertain){
   // сегменты в пределах окна поиска (где меняется sign/накшатра/суб)
   const a0=fromMin, a1=Math.max(toM, fromMin+1);
   const KPCO=1; // минутный шаг сканирования
