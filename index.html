@@ -50,7 +50,9 @@
   .events-head h3{margin:0;font-size:1.05rem;color:var(--c-ink)}
   .ev-row{display:flex;gap:10px;align-items:flex-end;margin-bottom:10px;flex-wrap:wrap}
   .ev-row .ev-type{flex:1 1 220px}
-  .ev-row .ev-date{flex:0 0 160px}
+  .ev-row .ev-date{flex:0 0 150px}
+  .ev-row .ev-time{flex:0 0 130px}
+  .ev-row .ev-tz{flex:1 1 200px}
   .ev-del{flex:0 0 auto;background:none;border:none;color:var(--c-red);font-size:1.4rem;
     cursor:pointer;line-height:1;padding:0 6px 8px}
   .ev-add{background:none;border:1.5px dashed var(--c-orange);color:var(--c-red);
@@ -874,6 +876,13 @@ function buildManualZones(){
     sel.appendChild(og);
   }
 }
+// опции часового пояса для событий (первая — «как в месте рождения»)
+function zoneOptionsHtml(){
+  let h='<option value="">место события — как рождения</option>';
+  for(const [grp,zs] of MANUAL_ZONES){ h+='<optgroup label="'+esc(grp)+'">';
+    for(const [z,lbl] of zs) h+='<option value="'+z+'">'+esc(lbl)+'</option>'; h+='</optgroup>'; }
+  return h;
+}
 
 /* ════════════════════════════════════════════════════════════════════
    ИНТЕРФЕЙС: пресеты окна + список событий
@@ -910,6 +919,8 @@ function eventRowHtml(){
   return '<div class="ev-row">'+
     '<div class="astro-field ev-type"><label>Событие</label><select class="ev-type-sel">'+opts+'</select></div>'+
     '<div class="astro-field ev-date"><label>Дата</label><input type="date" class="ev-date-inp"></div>'+
+    '<div class="astro-field ev-time"><label>Время (если известно)</label><input type="time" class="ev-time-inp"></div>'+
+    '<div class="astro-field ev-tz"><label>Место события</label><select class="ev-tz-sel">'+zoneOptionsHtml()+'</select></div>'+
     '<button type="button" class="ev-del" title="Удалить">×</button></div>';
 }
 function updateEvAdd(){
@@ -930,14 +941,20 @@ function addEventRow(){
 document.getElementById('evAdd').addEventListener('click',addEventRow);
 addEventRow(); // одна строка по умолчанию
 
-function collectEvents(){
+function collectEvents(birthZone){
   const out=[];
   document.querySelectorAll('#eventsList .ev-row').forEach(row=>{
     const type=row.querySelector('.ev-type-sel').value;
     const dv=row.querySelector('.ev-date-inp').value;
     if(!dv) return;
     const [ey,em,ed]=dv.split('-').map(Number);
-    out.push({type, dv, ms:Date.UTC(ey,em-1,ed,12,0)});
+    const timeStr=row.querySelector('.ev-time-inp').value;
+    const evZone=row.querySelector('.ev-tz-sel').value || birthZone || 'Europe/Moscow';
+    let ms, hasTime=false;
+    if(timeStr){ const [hh,mm]=timeStr.split(':').map(Number);
+      const m=moment.tz([ey,em-1,ed,hh,mm],evZone); ms=m.isValid()? m.valueOf() : Date.UTC(ey,em-1,ed,12,0); hasTime=true; }
+    else { ms=Date.UTC(ey,em-1,ed,12,0); }
+    out.push({type, dv, ms, hasTime});
   });
   return out;
 }
@@ -1075,7 +1092,7 @@ async function runRectification(){
   const devStr=t=>{ if(recMin===null) return ''; const dm=t-recMin; const sign=dm>0?'+':(dm<0?'−':'±');
     return ' · отклонение от записанного '+sign+Math.abs(dm)+' мин'; };
   const [y,mo,d]=dv.split('-').map(Number);
-  const events=collectEvents();
+  const events=collectEvents(zone);
 
   res.innerHTML='<p class="note">Считаю…</p>';
   await ensureEngine();
@@ -1206,15 +1223,38 @@ async function runRectification(){
     if(pts.length){ const mx=Math.max(...pts.map(p=>p.s));
       if(mx>0){ const hit=pts.filter(p=>p.s===mx); corridor={fromT:hit[0].t, toT:hit[hit.length-1].t, hits:mx, of:events.length}; } }
   }
+  // доп. сужение по событиям с точным ВРЕМЕНЕМ — сукшма-даша меняется за минуты
+  if(corridor){
+    const timed=events.filter(e=>e.hasTime);
+    if(timed.length){
+      const f2=corridor.fromT, t2=corridor.toT;
+      const scoreSook=t=>{ const h=Math.floor(t/60),mi=t-h*60,tz=offAt(t);
+        const ch=computeChart(y,mo,d,h,mi,tz,lat,lon), tl=buildTimeline(ch); let s=0;
+        for(const ev of timed){ const dl=dashaLevels(tl,ev.ms); if(dl && significatorsOf(ch,ev.type).has(dl.sook)) s++; }
+        return s; };
+      const p2=[]; for(let t=Math.ceil(f2);t<=Math.floor(t2);t++) p2.push({t,s:scoreSook(t)});
+      const mx2=Math.max(0,...p2.map(p=>p.s));
+      if(mx2>0){
+        let best=null,run=null;
+        for(const p of p2){ if(p.s===mx2){ run=run||{a:p.t,b:p.t}; run.b=p.t; }
+          else { if(run){ if(!best||(run.b-run.a)>(best.b-best.a)) best=run; run=null; } } }
+        if(run && (!best||(run.b-run.a)>(best.b-best.a))) best=run;
+        if(best && (best.b-best.a) < (t2-f2)){ corridor.fromT=best.a; corridor.toT=best.b; corridor.refined=true; corridor.timedHits=mx2; corridor.timedOf=timed.length; }
+      }
+    }
+  }
   if(corridor){
     html+='<h3 class="block-title">Вероятный коридор времени</h3>';
     html+='<div class="corridor-card"><div class="cc-label">Сужено по вашим событиям</div>'+
       '<div class="cc-range">'+fmtMinHtml(corridor.fromT)+'&nbsp;–&nbsp;'+fmtMinHtml(corridor.toT)+'</div>'+
       '<div class="cc-sub">внутри знака '+SIGN_RU[top.sign]+' · '+Math.max(1,(corridor.toT-corridor.fromT))+'&nbsp;мин · '+
-      'антардаша совпала у '+corridor.hits+' из '+corridor.of+' событий</div></div>';
-    html+='<p class="note">В этом коридоре антардаши ваших событий совпадают со значимыми домами и караками '+
-      '(самый устойчивый признак). <b>Точную минуту внутри коридора определяют на консультации</b> — '+
-      'по KP-суб-владыкам, дробным картам и сверке событий, точных до часа.</p>';
+      'антардаша совпала у '+corridor.hits+' из '+corridor.of+' событий'+
+      (corridor.refined?' · уточнено по времени событий (сукшма): '+corridor.timedHits+' из '+corridor.timedOf:'')+'</div></div>';
+    html+='<p class="note">В этом коридоре периоды ваших событий совпадают со значимыми домами и караками. '+
+      (corridor.refined
+        ? 'Коридор дополнительно сужен по событиям с <b>точным временем</b> (сукшма-даша). '
+        : 'Укажите у событий <b>точное время и место</b> — коридор сузится ещё сильнее. ')+
+      '<b>Окончательную минуту астролог проверяет и уточняет вплоть до секунд на консультации.</b></p>';
   }
 
   // разбор по событиям — на центре коридора (или середине полосы), согласованно с коридором
